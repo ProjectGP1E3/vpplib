@@ -528,14 +528,18 @@ class ElectricalEnergyStorageSimses(Component):
             DESCRIPTION.
 
         """
-        self.simses.run_one_simulation_step(
+        try:
+            self.simses.run_one_simulation_step(
             time.mktime(
                 dt.datetime.strptime(str(timestep),
                                      "%Y-%m-%d %H:%M:%S").timetuple()
             ),
             (load * -1000)
-        )
-
+              )
+        except ZeroDivisionError:
+            # Handle the division by zero error here
+            ac = 0.001  # Set AC power to a default value
+            # if possible one could also set  state of charge to a default value
         return (self.simses.state.soc,
                 (self.simses.state.get(
                     self.simses.state.AC_POWER_DELIVERED) / 1000))
