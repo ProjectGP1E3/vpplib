@@ -118,3 +118,5 @@ chp.timeseries.el_demand.iloc[0:96].plot(
     figsize=figsize, title="Daily View of Electrical Generation"
 )
 plt.show()
+
+#testing
