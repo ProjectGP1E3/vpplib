@@ -284,13 +284,13 @@ class UserProfile(object):
         
         """
 
-        self.get_building_parameters()
+       # self.get_building_parameters()
 
-        self.get_h_del()
+        #self.get_h_del()
 
-        self.get_thermal_energy_demand_daily()
+       # self.get_thermal_energy_demand_daily()
 
-        self.get_consumerfactor()
+       # self.get_consumerfactor()
 
         self.get_thermal_energy_demand_hourly()
 
@@ -599,10 +599,20 @@ class UserProfile(object):
         ...
         
         """
+       
+        self.get_building_parameters()
+
+        self.get_h_del()
+
+        self.get_consumerfactor()
+        
+        self.get_thermal_energy_demand_daily()
+
 
         self.thermal_energy_demand_hourly = (
             self.thermal_energy_demand_daily * self.consumerfactor
         )
+        
 
         return self.thermal_energy_demand_hourly
 
