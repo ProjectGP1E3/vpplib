@@ -26,6 +26,8 @@ class Environment(object):
         mean_temp_hours=[],
         pv_data=[],
         wind_data=[],
+        sun_power_data=[],
+        price_data=[],
     ):
 
         """
@@ -71,16 +73,34 @@ class Environment(object):
         self.mean_temp_hours = mean_temp_hours
         self.pv_data = pv_data
         self.wind_data = wind_data
+        self.sun_power_data=sun_power_data
+        self.price_data=price_data
 
     def get_pv_data(
         self, file=os.path.join(os.path.dirname(__file__),"../input/pv/dwd_pv_data_2015.csv")
         # self, file="./input/pv/dwd_pv_data_2015.csv"
         ):
-
         self.pv_data = pd.read_csv(file, index_col="time")
         self.pv_data.index = pd.to_datetime(self.pv_data.index)
 
         return self.pv_data
+    
+    def get_price_data(
+        self, file=os.path.join(os.path.dirname(__file__),"../input/price/Day_ahead_prices.csv")
+        # self, file="./input/pv/dwd_pv_data_2015.csv"
+        ):
+       self.price_data = pd.read_csv(file, index_col="Date", parse_dates=True, dayfirst=True)
+
+       return self.price_data
+
+    def get_sunPower_data(
+        self, file=os.path.join(os.path.dirname(__file__),"../input/enviroment/weather_ninja_sunpower_hours_2015.csv")
+        # self, file="./input/enviroment/weather_ninja_sunpower_hours_2015.csv"
+        ):
+        self.sun_power_data = pd.read_csv(file, index_col="time", parse_dates=True, dayfirst=True)
+
+        return self.sun_power_data
+      
 
     def get_mean_temp_days(
         self, file=os.path.join(os.path.dirname(__file__),"../input/thermal/dwd_temp_days_2015.csv")
