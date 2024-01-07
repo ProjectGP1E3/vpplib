@@ -72,7 +72,7 @@ user_profile = UserProfile(
 
 # Getting Prices 
 prices = environment.get_price_data()
-environment.get_pv_data(file="D:/Project/vpplib/input/pv/dwd_pv_data_2015.csv")
+#environment.get_pv_data(file="C:\Users\aijaz\vpplib\input\pv")
 
 
 # defining variables
@@ -96,21 +96,57 @@ charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name=
 
 #Constraints on charging process
 #chargingPower constraints
-constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore 
+constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore 
 #state of charge constraint
-constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
 
 #Constraints on discharging process
 #chargingPower constraints
-constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore
 #state of charge constraint
-constraints_eq4={t: m.addConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq4={t: m.addConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
 
 #Constraints on Processes
-constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in set_T} # type: ignore
 
-objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
+#objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
+objective = gp.quicksum(-1 * chargingPower[t] * timestep * prices.iloc[t, 0] + dischargingPower[t] * timestep * prices.iloc[t, 0] for t in set_T)
+
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
  # Solve the optimization problem
 m.optimize()
+
+# Extracting timeseries
+charging_power_values = [chargingPower[t].X for t in set_T]
+discharging_power_values = [dischargingPower[t].X for t in set_T]
+charge_percentage_values = [charge[t].X for t in range(1, T-1)]  # Starting from 1 because we don't have charge[0]
+
+time_steps = list(set_T)
+
+plt.figure(figsize=(12, 6))
+
+# Plotting Charging Power
+plt.subplot(3, 1, 1)
+plt.plot(time_steps, charging_power_values, label='Charging Power')
+plt.ylabel('Power (kW)')
+plt.title('Charging Power over Time')
+plt.legend()
+
+# Plotting Discharging Power
+plt.subplot(3, 1, 2)
+plt.plot(time_steps, discharging_power_values, label='Discharging Power')
+plt.ylabel('Power (kW)')
+plt.title('Discharging Power over Time')
+plt.legend()
+
+# Plotting Charge Percentage
+plt.subplot(3, 1, 3)
+plt.plot(range(1, T-1), charge_percentage_values, label='Charge Percentage')
+plt.xlabel('Time Step')
+plt.ylabel('Charge (%)')
+plt.title('Battery Charge over Time')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
