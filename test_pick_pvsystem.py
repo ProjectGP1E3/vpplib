@@ -4,7 +4,7 @@ Created on Sat Feb 15 12:20:07 2020
 
 @author: sbirk
 """
-
+import matplotlib.pyplot as plt
 from vpplib.environment import Environment
 from vpplib.user_profile import UserProfile
 from vpplib.photovoltaic import Photovoltaic
@@ -76,3 +76,4 @@ print(pv.inverter)
 print("PV peak power: ", pv.peak_power)
 print("Area of PV modules: ", pv.modules_area)
 pv.timeseries.plot(figsize=(16, 9))
+plt.show()

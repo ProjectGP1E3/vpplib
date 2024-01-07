@@ -13,6 +13,7 @@ TODO: Setup data type for target data and alter the referencing accordingly!
 """
 
 import math
+from matplotlib import legend
 import pandas as pd
 import pandapower as pp
 import matplotlib.pyplot as plt
@@ -247,6 +248,7 @@ class Operator(object):
                     self.net.sgen.p_mw[self.net.sgen.name == component] = (
                         value_for_timestamp / -1000
                     )  # kW to MW; negative due to generation
+                    # converting to positive for observation
 
                     if math.isnan(
                         self.net.sgen.p_mw[self.net.sgen.name == component]
@@ -393,7 +395,6 @@ class Operator(object):
 
     # %% assign values of generation/demand from SimBench and VPPlib
     # over time and run powerflow
-
     def run_simbench_scenario(self, profiles):
         """
         Info
@@ -859,7 +860,7 @@ class Operator(object):
             for gen in results["sgen_p_mw"].columns:
                 if "PV" in gen:
                     results["sgen_p_mw"][gen].plot(
-                        figsize=(16, 9), title="PV [MW]"
+                        figsize=(16, 9), title="PV data [MW]"
                     )
             plt.show()
 
@@ -910,5 +911,5 @@ class Operator(object):
         for comp in self.virtual_power_plant.components.keys():
             if "storage" in comp:
                 self.virtual_power_plant.components[comp].timeseries.plot(
-                    figsize=(16, 9), title=comp
+                    figsize=(16, 9), title=comp,legend=legend
                 )

@@ -22,7 +22,7 @@ Day_ahead_prices = client.query_day_ahead_prices(country_code=cl, start=start, e
 Day_ahead_prices_Numpy=Day_ahead_prices.to_numpy()
 Day_ahead_prices_pd_1h=pd.DataFrame(Day_ahead_prices_Numpy, columns = ['Day-Ahead Prices'])
 
-csv_file = 'Day_ahead_prices.csv'
+csv_file = '/Day_ahead_prices.csv'
 Day_ahead_prices_pd_1h.to_csv(csv_file)
 
 print(Day_ahead_prices)

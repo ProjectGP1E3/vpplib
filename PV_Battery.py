@@ -1,9 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 29 13:25:23 2019
-
-@author: Sascha Birk
+@author: Tarit Das
 """
+
+import pandas as pd
+import pandapower as pp
+import pandapower.networks as pn
+import gurobipy as gp
+from gurobipy import GRB
+from vpplib.environment import Environment
+from vpplib.user_profile import UserProfile
+from vpplib.photovoltaic import Photovoltaic
+from vpplib.battery_electric_vehicle import BatteryElectricVehicle
+from vpplib.heat_pump import HeatPump
+from vpplib.electrical_energy_storage import *
+from vpplib.wind_power import WindPower
+from vpplib.virtual_power_plant import VirtualPowerPlant
+from vpplib.operator import Operator
+
+
 
 from vpplib.environment import Environment
 from vpplib.user_profile import UserProfile
@@ -17,6 +32,8 @@ import matplotlib.pyplot as plt
 start = "2015-06-01 00:00:00"
 end = "2015-06-01 23:45:00"
 year = "2015"
+
+num_of_timesteps=48
 
 # user_profile
 latitude = 50.941357
@@ -98,48 +115,8 @@ house_loadshape["pv_gen"] = pv.timeseries.loc[start:end]
 house_loadshape["residual_load"] = (
     baseload["0"].loc[start:end] / 1000 - pv.timeseries.bus_pv
 )
+T=num_of_timesteps
+set_T = range(0,T-1)
 
-# assign residual load to storage
-storage.residual_load = house_loadshape.residual_load
-
-
-def test_prepare_time_series(storage):
-
-    storage.prepare_time_series()
-    print("prepare_time_series:")
-    print(storage.timeseries.head())
-    storage.timeseries.plot(figsize=(16, 9))
-    plt.show()
-
-
-def test_value_for_timestamp(storage, timestamp):
-
-    timestepvalue = storage.value_for_timestamp(timestamp)
-    print("\nvalue_for_timestamp:\n", timestepvalue)
-
-
-def test_observationsForTimestamp(storage, timestamp):
-
-    print("observations_for_timestamp:")
-    observation = storage.observations_for_timestamp(timestamp)
-    print(observation, "\n")
-
-
-def test_operate_storage(storage, timestamp):
-
-    print("operate_storage:")
-    state_of_charge, res_load = storage.operate_storage(
-        storage.residual_load.loc[timestamp]
-    )
-    print("state_of_charge: ", state_of_charge)
-    print("res_load: ", res_load)
-
-
-test_prepare_time_series(storage)
-test_value_for_timestamp(storage, timestamp_int)
-test_value_for_timestamp(storage, timestamp_str)
-
-test_observationsForTimestamp(storage, timestamp_int)
-test_observationsForTimestamp(storage, timestamp_str)
-
-test_operate_storage(storage, timestamp_str)
+# Create models
+mipModel = gp.Model('MIP')

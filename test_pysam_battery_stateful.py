@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # environment
 start = "2015-06-01 00:00:00"
-end = "2015-06-07 23:45:00"
+end = "2015-06-01 23:45:00"
 year = "2015"
 timebase = 15
 

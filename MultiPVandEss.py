@@ -95,6 +95,7 @@ dischargingState = {t:m.addVar(vtype=GRB.INTEGER ,lb=0,ub=1,name="dischargingSta
 charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name="chargePercentage_{}".format(t)) for t in set_T}
 
 #Constraints on charging process
+
 #chargingPower constraints
 constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore 
 #state of charge constraint

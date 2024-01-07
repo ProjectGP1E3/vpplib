@@ -324,7 +324,7 @@ class Photovoltaic(Component):
         self.module = self.module_lib[module]
         self.inverter = self.inverter_lib[inverter]
 
-        self.system = PVSystem(
+        self.system = PVSystem(         
             surface_tilt=self.surface_tilt,
             surface_azimuth=self.surface_azimuth,
             module_parameters=self.module,
@@ -342,7 +342,7 @@ class Photovoltaic(Component):
             self.module.Impo
             * self.module.Vmpo
             / 1000
-            * self.system.modules_per_string
+            * self.system.modules_per_string  # type: ignore
             * self.system.strings_per_inverter
         )
 
