@@ -97,18 +97,18 @@ charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name=
 #Constraints on charging process
 
 #chargingPower constraints
-constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore 
+constraints_eq1={t: m.addLConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore 
 #state of charge constraint
-constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq2={t: m.addLConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
 
 #Constraints on discharging process
 #chargingPower constraints
-constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq3={t: m.addLConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
 #state of charge constraint
-constraints_eq4={t: m.addConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq4={t: m.addLConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
 
 #Constraints on Processes
-constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+constraints_eq5={t: m.addLConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
 
 objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
 m.ModelSense = GRB.MINIMIZE
