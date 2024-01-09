@@ -96,7 +96,7 @@ timebase = 15
 
 # Getting Prices 
 prices = environment.get_price_data()
-pvPower=pv.timeseries.loc[start:end]
+pvPower=pv.timeseries.loc[start:end] #type: ignore
 #environment.get_pv_data(file="C:\Users\aijaz\vpplib\input\pv")
 
 
