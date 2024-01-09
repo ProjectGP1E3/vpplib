@@ -183,7 +183,7 @@ constraints_eq5 = {t: m.addConstr(
 
  # Objective
 
-objective = gp.quicksum(P_HP[t]*P[t]*time_step_size/60 + comfort_penalty*nu[t] for t in set_T)
+objective = gp.quicksum(-P_HP[t]*P[t]*time_step_size/60 + comfort_penalty*nu[t] for t in set_T)
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
  # Solve the optimization problem
@@ -191,7 +191,7 @@ m.optimize()
 
 
 P_actual=[]
-for t,varname in enumerate(Q_HP.values()):
+for t,varname in enumerate(T_sto.values()):
     P_actual.append(m.getVarByName(varname.VarName).x)
 
 # Assuming set_T represents the time indices associated with Q_demand

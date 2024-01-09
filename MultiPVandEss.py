@@ -1,7 +1,7 @@
-from torch import t
+#from torch import t
 from vpplib.user_profile import UserProfile
 from vpplib.environment import Environment
-from vpplib.heat_pump import HeatPump
+from vpplib.photovoltaic import Photovoltaic
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -26,22 +26,41 @@ num_time_step=int(num_hours*60//time_step_size)
 # Values for user_profile
 latitude = 50.941357
 longitude = 6.958307
+identifier = "Cologne"
 building_type = "DE_HEF33"
 t_0 = 40
 
-# PV
-unit = "kW"
-name = "PVbus"
-module_lib = "SandiaMod"
-module = "Canadian_Solar_CS5P_220M___2009_"
-inverter_lib = "cecinverter"
-inverter = "Connect_Renewable_Energy__CE_4000__240V_"
-surface_tilt = 20
-surface_azimuth = 200
-modules_per_string = 4
-strings_per_inverter = 2
-temp_lib = 'sapm'
-temp_model = 'open_rack_glass_glass'
+
+# initialisation of enviroment 
+environment = Environment(
+    timebase=timebase, start=start, end=end, year=year, time_freq=time_freq
+)
+
+#initialisation of user profile 
+user_profile = UserProfile(
+    identifier=identifier,
+    latitude=latitude,
+    longitude=longitude,
+    building_type=building_type,
+    comfort_factor=None,
+    t_0=t_0,
+)
+pv = Photovoltaic(
+    unit="kW",
+    identifier= identifier,
+    environment=environment,
+    user_profile=user_profile,
+    module_lib="SandiaMod",
+    module="Canadian_Solar_CS5P_220M___2009_",
+    inverter_lib="cecinverter",
+    inverter="ABB__MICRO_0_25_I_OUTD_US_208__208V_",
+    surface_tilt=20,
+    surface_azimuth=200,
+    modules_per_string=2,
+    strings_per_inverter=2,
+    temp_lib='sapm',
+    temp_model='open_rack_glass_glass'
+)
 
 # Battery Variables Initialization
 maxChargingPower=50
@@ -55,24 +74,14 @@ capacity = 4  # kWh
 max_c = 1
 timebase = 15
 
-# initialisation of enviroment 
-environment = Environment(
-    timebase=timebase, start=start, end=end, year=year, time_freq=time_freq
-)
 
-#initialisation of user profile 
-user_profile = UserProfile(
-    identifier=name,
-    latitude=latitude,
-    longitude=longitude,
-    building_type=building_type,
-    comfort_factor=None,
-    t_0=t_0,
-)
+
+
+
 
 # Getting Prices 
 prices = environment.get_price_data()
-environment.get_pv_data(file="D:/Project/vpplib/input/pv/dwd_pv_data_2015.csv")
+pv_data=environment.get_pv_data()
 
 
 # defining variables
@@ -88,29 +97,49 @@ m = gp.Model('MIP')
 
 pricesModel = {t: prices_use[(t *time_step_size)//60] for t in set_T}
 
-chargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=maxChargingPower,name="chargingPower_{}".format(t)) for t in set_T}
-dischargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=maxDischargingPower,name="dischargingPower_{}".format(t)) for t in set_T}
-chargingState = {t:m.addVar(vtype=GRB.INTEGER,lb=0,ub=1,name="chargingState_{}".format(t)) for t in set_T}
-dischargingState = {t:m.addVar(vtype=GRB.INTEGER ,lb=0,ub=1,name="dischargingState_{}".format(t)) for t in set_T}
-charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name="chargePercentage_{}".format(t)) for t in set_T}
+chargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS, name="chargingPower_{}".format(t)) for t in set_T}
+dischargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS, name="dischargingPower_{}".format(t)) for t in set_T}
+chargingstate = {t: m.addVar(vtype=GRB.BINARY, name=f"chargingstate_{t}") for t in set_T}
+charge={t:m.addVar(vtype=GRB.CONTINUOUS ,name="chargePercentage_{}".format(t)) for t in set_T}
+dischargingstate = {t: m.addVar(vtype=GRB.BINARY, name=f"dischargingstate_{t}") for t in set_T}
 
-#Constraints on charging process
-#chargingPower constraints
-constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore 
-#state of charge constraint
-constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
 
-#Constraints on discharging process
-#chargingPower constraints
-constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
-#state of charge constraint
-constraints_eq4={t: m.addConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+# Constraints of discharging process
 
-#Constraints on Processes
-constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in range(0,T)} # type: ignore
+#Power constraints
+constraints_Power = {t: m.addConstr(
+    lhs =dischargingPower[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=maxDischargingPower*dischargingstate[t],
+    name='Power_constraint_{}'.format(t)
+    ) for t in range(0,T-1)}
 
-objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
-m.ModelSense = GRB.MINIMIZE
-m.setObjective(objective)
- # Solve the optimization problem
-m.optimize()
+#State of charge constraints 
+
+constraints_stateCharge = {t: m.addConstr(
+    lhs = charge[t-1]-(1/dischargingEfficiency)*(timestep/60)*dischargingPower,
+    sense = GRB.GREATER_EQUAL,
+    rhs=minimumCharge,
+    name='statecharge_{}'.format(t)
+) for t in range(1,T-1)}
+
+#Constraints on charging process 
+
+#Power constraints
+constraints_Power1 = {t: m.addConstr(
+    lhs =chargingPower[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=maxChargingPower*chargingstate[t],
+    name='Power_constraint1_{}'.format(t)
+    ) for t in range(0,T-1)}
+
+#State of charge constraints 
+
+constraints_stateCharge1 = {t: m.addConstr(
+    lhs = charge[t-1]-chargingEfficiency*(timestep/60)*chargingPower,
+    sense = GRB.GREATER_EQUAL,
+    rhs=maximumCharge,
+    name='statecharge1_{}'.format(t)
+) for t in range(1,T-1)}
+
+#Wind-PV power constraint
