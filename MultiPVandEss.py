@@ -149,10 +149,10 @@ constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense
 
 #Constraints on Charge
 constraints_eq6=   {t: m.addConstr(lhs=charge[t] ,sense = GRB.EQUAL,rhs= charge[t-1]+chargingEfficiency*timestep*chargingPower[t]-timestep*dischargingEfficiency*dischargingPower[t],name='charge_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
-constraints_eq6[0]=    m.addConstr(lhs=charge[0] ,sense = GRB.EQUAL,rhs= 0,name='charge_constraint_{}'.format(0))
+constraints_eq6[0]=    m.addConstr(lhs=charge[0] ,sense = GRB.EQUAL,rhs= 0,name='charge_constraint_{}'.format(0)) # type: ignore
 
 #objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
-objective = gp.quicksum(-1 * chargingPower[t] * timestep * prices.iloc[t, 0] + dischargingPower[t] * timestep * prices.iloc[t, 0] for t in set_T)
+objective = gp.quicksum(-1 * chargingPower[t] * timestep * prices.iloc[t, 0] + dischargingPower[t] * timestep * prices.iloc[t, 0] for t in set_T) # type: ignore
 
 m.ModelSense = GRB.MAXIMIZE
 m.setObjective(objective)
