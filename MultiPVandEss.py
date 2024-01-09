@@ -13,8 +13,8 @@ from gurobipy import GRB
 
 
 # Values for environment
-start = "2015-01-01 12:00:00"
-end = "2015-01-01 23:45:00"
+start = "2015-05-01 12:00:00"
+end = "2015-05-01 23:45:00"
 year = "2015"
 time_freq = "15 min"
 timestamp_int = 48
@@ -119,7 +119,8 @@ T=num_time_step
 set_T = range(0,T-1)
 
 prices_use=prices.iloc[0:num_hours, 0].values
-pvPower_use=pvPower.iloc[0:num_hours,0].values
+pvPower_use=np.array(pvPower.iloc[0:num_hours,0].values)
+pvPower_use[pvPower_use<0]=0
 # Create models
 m = gp.Model('MIP')
 m.setParam('TimeLimit',5*60)
@@ -137,12 +138,12 @@ charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name=
 constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore 
 #state of charge constraint
 constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
-#constraints_eq7={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= pvPowerModel[t] ,name='chargingPowerPV_constraint_{}'.format(t)) for t in set_T}
+constraints_eq7={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= pvPowerModel[t] ,name='chargingPowerPV_constraint_{}'.format(t)) for t in set_T} # type: ignore
 #Constraints on discharging process
 #chargingPower constraints
 constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore
 #state of charge constraint
-constraints_eq4={t: m.addConstr(lhs = charge[t-1] - 1/dischargingEfficiency*timestep*dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
+constraints_eq4={t: m.addConstr(lhs = charge[t-1] - (1/dischargingEfficiency)*timestep*dischargingPower[t],sense = GRB.GREATER_EQUAL,rhs= minimumCharge ,name='dischargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
 
 #Constraints on Processes
 constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense = GRB.LESS_EQUAL,rhs= 1 ,name='chargingDischargingCorrelation_constraint_{}'.format(t)) for t in set_T} # type: ignore
@@ -194,7 +195,7 @@ plt.legend()
 
 plt.tight_layout()
 
-print(np.size(pvPower))
+#print(pvPower)
 plt.show()
 # ESS.residual_load=house_loadshape.residual_load
 # ESS.prepare_time_series()
