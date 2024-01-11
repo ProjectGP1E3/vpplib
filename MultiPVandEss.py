@@ -79,8 +79,6 @@ pv = Photovoltaic(
 )
 pv.prepare_time_series()
 
-
-
 # Battery Variables Initialization
 maxChargingPower=0.05
 maxDischargingPower=0.04
@@ -97,8 +95,6 @@ timebase = 15
 # Getting Prices 
 prices = environment.get_price_data()
 pvPower=pv.timeseries.loc[start:end] #type: ignore
-#environment.get_pv_data(file="C:\Users\aijaz\vpplib\input\pv")
-
 
 # creating an ESS
 ESS = ElectricalEnergyStorage(
@@ -119,8 +115,9 @@ T=num_time_step
 set_T = range(0,T-1)
 
 prices_use=prices.iloc[0:num_hours, 0].values
-pvPower_use=np.array(pvPower.iloc[0:num_hours,0].values)
-pvPower_use[pvPower_use<0]=0
+pvPower_use=pvPower.iloc[0:num_hours,0].values
+pvPower_use[pvPower_use < 0]=0
+
 # Create models
 m = gp.Model('MIP')
 m.setParam('TimeLimit',5*60)
@@ -134,12 +131,14 @@ dischargingState = {t:m.addVar(vtype=GRB.INTEGER ,lb=0,ub=1,name="dischargingSta
 charge={t:m.addVar(vtype=GRB.CONTINUOUS,lb=minimumCharge,ub=maximumCharge ,name="chargePercentage_{}".format(t)) for t in set_T}
 
 #Constraints on charging process
+
 #chargingPower constraints
 constraints_eq1={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= chargingState[t] * maxChargingPower ,name='chargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore 
 #state of charge constraint
 constraints_eq2={t: m.addConstr(lhs = charge[t-1] + chargingEfficiency*timestep*chargingPower[t],sense = GRB.LESS_EQUAL,rhs= maximumCharge,name='chargingState_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
-constraints_eq7={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= pvPowerModel[t] ,name='chargingPowerPV_constraint_{}'.format(t)) for t in set_T} # type: ignore
+
 #Constraints on discharging process
+
 #chargingPower constraints
 constraints_eq3={t: m.addConstr(lhs = dischargingPower[t],sense = GRB.LESS_EQUAL,rhs= dischargingState[t] * maxDischargingPower ,name='dischargingPower_constraint_{}'.format(t)) for t in set_T} # type: ignore
 #state of charge constraint
@@ -152,7 +151,10 @@ constraints_eq5={t: m.addConstr(lhs = chargingState[t]+dischargingState[t],sense
 constraints_eq6=   {t: m.addConstr(lhs=charge[t] ,sense = GRB.EQUAL,rhs= charge[t-1]+chargingEfficiency*timestep*chargingPower[t]-timestep*dischargingEfficiency*dischargingPower[t],name='charge_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
 constraints_eq6[0]=    m.addConstr(lhs=charge[0] ,sense = GRB.EQUAL,rhs= 0,name='charge_constraint_{}'.format(0)) # type: ignore
 
-#objective = gp.quicksum(-1*chargingPower[t]*timestep*prices[t] + dischargingPower[t]*timestep*prices[t] for t in set_T)  # type: ignore
+#PV incorporation
+constraints_eq7={t: m.addConstr(lhs = chargingPower[t],sense = GRB.LESS_EQUAL,rhs= pvPowerModel[t] ,name='chargingPowerPV_constraint_{}'.format(t)) for t in set_T} # type: ignore
+
+#Objective function
 objective = gp.quicksum(-1 * chargingPower[t] * timestep * prices.iloc[t, 0] + dischargingPower[t] * timestep * prices.iloc[t, 0] for t in set_T) # type: ignore
 
 m.ModelSense = GRB.MAXIMIZE
@@ -166,40 +168,100 @@ discharging_power_values = [dischargingPower[t].X for t in set_T]
 charge_percentage_values = [charge[t].X for t in range(1, T-1)]  # Starting from 1 because we don't have charge[0]
 residualLoad=result = [a - b for a, b in zip(charging_power_values,discharging_power_values)]
 time_steps = list(set_T)
+if len(charge_percentage_values) < len(time_steps):
+    charge_percentage_values.insert(0, 0) 
 
+#prices and discharging
+fig, ax1 = plt.subplots(figsize=(10, 5))
 
+# Plotting prices on the primary y-axis
+ax1.plot(list(pricesModel.keys()), list(pricesModel.values()), label='Prices', color='b')
+ax1.set_ylabel('Prices', color='b')
+ax1.tick_params(axis='y', labelcolor='b')
 
-plt.figure(figsize=(12, 6))
+# Creating a secondary y-axis for discharging power
+ax2 = ax1.twinx()  
+ax2.plot(discharging_power_values, label='Discharging Power', color='g')
+ax2.set_ylabel('Discharging Power', color='g')
+ax2.tick_params(axis='y', labelcolor='g')
 
-# Plotting Charging Power
-plt.subplot(3, 1, 1)
-plt.plot(time_steps, charging_power_values, label='Charging Power')
-plt.ylabel('Power (kW)')
-plt.title('Charging Power over Time')
-plt.legend()
+# Adding legend
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
 
-# Plotting Discharging Power
-plt.subplot(3, 1, 2)
-plt.plot(time_steps, discharging_power_values, label='Discharging Power')
-plt.ylabel('Power (kW)')
-plt.title('Discharging Power over Time')
-plt.legend()
-
-# Plotting Charge Percentage
-plt.subplot(3, 1, 3)
-plt.plot(range(1, T-1), charge_percentage_values, label='Charge ')
-plt.xlabel('Time Step')
-plt.ylabel('Charge ')
-plt.title('Battery Charge over Time')
-plt.legend()
-
-plt.tight_layout()
-
-#print(pvPower)
+# Display the plot
 plt.show()
-# ESS.residual_load=house_loadshape.residual_load
-# ESS.prepare_time_series()
-# print("prepare_time_series:")
-# print(ESS.timeseries.head())
-# ESS.timeseries.plot(figsize=(16, 9))
-# plt.show()
+
+#Plots on same axis charging, discharging, SOC
+fig, ax1 = plt.subplots(figsize=(12, 6))
+
+discharging_power_values = [-value for value in discharging_power_values]
+
+# Plotting Charging Power as positive bars
+ax1.bar(time_steps, charging_power_values, width=0.4, label='Charging Power', color='blue')
+
+# Plotting Discharging Power as negative bars
+ax1.bar(time_steps, discharging_power_values, width=0.4, label='Discharging Power', color='orange')
+
+# Creating a secondary y-axis for the SOC
+ax2 = ax1.twinx()
+
+# Plotting the SOC on the secondary y-axis
+if len(charge_percentage_values) < len(time_steps):
+    charge_percentage_values.insert(0, 0)  # Assuming the initial SOC is 0
+ax2.plot(time_steps, charge_percentage_values, label='SOC', color='black', linestyle='-')
+
+# Adding labels, title, and grid
+ax1.set_xlabel('Time Step')
+ax1.set_ylabel('Power (kW)', color='blue')
+ax2.set_ylabel('SOC', color='black')
+plt.title('Charging/Discharging Power and SOC over Time')
+ax1.grid(True)
+
+# Adding legends
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+# Making the y-axis label color match the data
+ax1.tick_params(axis='y', labelcolor='blue')
+ax2.tick_params(axis='y', labelcolor='black')
+
+plt.show()
+
+#pv anc charging
+fig, ax3 = plt.subplots(figsize=(10, 5))
+
+# Plotting prices on the primary y-axis
+ax3.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='b')
+ax3.set_ylabel('PV', color='b')
+ax3.tick_params(axis='y', labelcolor='b')
+
+# Creating a secondary y-axis for discharging power
+ax4 = ax3.twinx()  
+ax4.plot(charging_power_values, label='Charging Power', color='g')
+ax4.set_ylabel('Charging Power', color='g')
+ax4.tick_params(axis='y', labelcolor='g')
+
+# Adding legend
+ax3.legend(loc='upper left')
+ax4.legend(loc='upper right')
+
+# Display the plot
+plt.show()
+
+#Dataframe of obtained timeseries
+data = {
+    'Time Step': time_steps,
+    'Charging Power (kW)': charging_power_values,
+    'Discharging Power (kW)': [-value for value in discharging_power_values],  # ensure these are negative
+    'SOC': charge_percentage_values,
+    'Prices': list(pricesModel.values()),
+    'PV': list(pvPowerModel.values())
+}
+
+df = pd.DataFrame(data)
+
+print(df.head())
+print(df.tail())
+
+df = df.set_index('Time Step')
