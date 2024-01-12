@@ -14,7 +14,7 @@ C_startup = 10  # Costs caused by increased machine wear during switching on ope
 C_shortdown=10  # Costs caused by increased machine wear during  switching off operations [Euro=kwh]
 T_on=1  # minimum runtime of CHP
 T_off=2 # minimum off time of CHP
-P_nom=5   #nominal electrical power in kw 
+P_nom=4   #nominal electrical power in kw 
 eta_total = 0.8  # Total efficiency of the CHP
 c=0.3 # calculated according Steck PHD thesis see (Steck 2012 page 34)
 k=1.2 # calculated according Steck PHD thesis see (Steck 2012 page 34) 
@@ -98,4 +98,184 @@ thermal_demand=user_profile.get_thermal_energy_demand_hourly()  #check the shape
 
 mean_temp_hours = environment.get_mean_temp_hours()   #check the shape 
 
-print(prices.shape)
+#take 240hrs of the Data 
+thermal_demand_use = thermal_demand.iloc[0:num_hours, 0].values  #check  shape
+prices_use=prices.iloc[0:num_hours,0].values     #check shape 
+mean_temp_hours_use = mean_temp_hours.iloc[0:num_hours, 0].values #check shape
+
+#create variables 
+T_a = {t: mean_temp_hours_use[(t *time_step_size)//60] for t in set_T}  #ambient temperature
+
+P = {t: prices_use[(t *time_step_size)//60] for t in set_T}  #check len 960 for 10days
+
+Q_demand={t:thermal_demand_use[(t *time_step_size//60)] for t in set_T}  #heat demand in kw
+
+# Defining decision variables
+P_available = {t:m.addVar(vtype=GRB.CONTINUOUS, name="P_available_{}".format(t)) for t in set_T} #Actual available electrical output power of the CHP [kW]
+
+P_fuel={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_fuel_{}".format(t)) for t in set_T} # fuel consumption of the CHP[KW]
+
+P_thermal={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_thermal{}".format(t)) for t in set_T} #Thermal output power of the CHP [kW]
+
+sigma_t = {t: m.addVar(vtype=GRB.BINARY, name="sigma_{}".format(t)) for t in set_T}
+
+E_t={t:m.addVar(vtype=GRB.CONTINUOUS, name="E_{}".format(t)) for t in set_T}# state of charge[KWh] of TES
+
+T_sto={t:m.addVar(vtype=GRB.CONTINUOUS, name="Current_Temperature_{}".format(t)) for t in set_T}# storage temperature of TES in °C
+
+sigma_startup= {t:m.addVar(vtype=GRB.BINARY, name="sigma_startup_{}".format(t)) for t in set_T} #  Start-up process in t
+
+sigma_shortdown= {t:m.addVar(vtype=GRB.BINARY, name="sigma_shortdown_{}".format(t)) for t in set_T} #  Start-up process in t
+
+Q_dot_charge={t:m.addVar(vtype=GRB.CONTINUOUS, name="Q_dot_charge_{}".format(t)) for t in set_T}# charging rate [KW]
+
+Q_dot_discharge={t:m.addVar(vtype=GRB.CONTINUOUS, name="Q_dot_discharge_{}".format(t)) for t in set_T}# discharging rate [KW]
+
+x_vars = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0, ub=1, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
+
+nu = {t:m.addVar(vtype=GRB.CONTINUOUS, name="nu_{}".format(t)) for t in set_T} # thermal disutility in °C
+
+P_hp_thermal={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_hp_thermal_{}".format(t)) for t in set_T} #thermal power of heat pump in[kW]
+
+P_hp_Elec={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_hp_Elec_{}".format(t)) for t in set_T} #Electricity consumption of heat pump in[kW]
+
+#Constraint Equations CHP
+
+# Define constraints uptime
+constraints_uptime_eq = {t: m.addConstr(
+    lhs=sigma_t[t] - sigma_t[t - 1],
+    sense=GRB.LESS_EQUAL,
+    rhs=sigma_t[t + j],
+    name=f"max_constraint_{t}"
+) for t in range(1, T - T_on-1) for j in range(1, T_on+1)}
+
+# Define constraints downtime
+constraints_downtime_eq = {t: m.addConstr(
+    lhs=sigma_t[t-1] - sigma_t[t] +sigma_t[t + j],
+    sense=GRB.LESS_EQUAL,
+    rhs=1,
+    name=f"max_constraint_{t}"
+) for t in range(1, T - T_off-1) for j in range(1, T_off+1)}
+
+constraints_operating_state = {t: m.addConstr(
+    lhs = P_available[t],
+    sense = GRB.EQUAL,
+    rhs= sigma_t[t]*P_nom,
+    name='operating_state_{}'.format(t)
+) for t in range(0,T)}
+
+constraints_power_dependency = {t: m.addConstr(
+    lhs = P_fuel[t],
+    sense = GRB.EQUAL,
+    rhs= c*sigma_t[t] + k*P_available[t],
+    name='Power_dependency_{}'.format(t)
+) for t in range(0,T)}
+
+constraints_Cogeneration = {t: m.addConstr(
+    lhs = P_thermal[t],
+    sense = GRB.EQUAL,
+    rhs= f_1*P_available[t] + f_2*sigma_t[t],
+    name='Cogeneration_{}'.format(t)
+) for t in range(0,T)}
+
+constraints_startup_eq = {t: m.addConstr(
+    lhs = sigma_startup[t],
+    sense = GRB.GREATER_EQUAL,
+    rhs=sigma_t[t]-sigma_t[t-1],
+    name='start_up_{}'.format(t)
+) for t in range(1,T)}
+
+
+constraints_shortdown_eq = {t: m.addConstr(
+    lhs = sigma_shortdown[t],
+    sense = GRB.GREATER_EQUAL,
+    rhs=sigma_t[t-1]-sigma_t[t],
+    name='short_down_{}'.format(t)
+) for t in range(1,T)}
+
+# <= contraints
+constraints_rampup_eq = {t: m.addConstr(
+    lhs =P_available[t-1]-P_available[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=4,
+    name='max_constraint_{}'.format(t)
+    ) for t in range(1,T)}
+
+# <= contraints
+constraints_rampdown_eq = {t: m.addConstr(
+    lhs =P_available[t]-P_available[t-1],
+    sense = GRB.LESS_EQUAL,
+    rhs=4,
+    name='max_constraint_{}'.format(t)
+    ) for t in range(1,T)}
+
+#Constraint Equations Heat pump 
+
+constraints_thermal_generation = {t: m.addConstr(
+    lhs = P_hp_thermal[t],
+    sense = GRB.EQUAL,
+    rhs=heat_pump_power(P_nom, T_a[t])*x_vars[t] ,
+    name='Thermalgeneration_{}'.format(t)
+) for t in range(0,T)}
+
+constraints_Electrical_Consumption = {t: m.addConstr(
+    lhs = P_hp_Elec[t],
+    sense = GRB.EQUAL,
+    rhs=el_power*x_vars[t] ,
+    name='ElectricalConsumption_{}'.format(t)
+) for t in range(0,T)}
+
+#need to work on this operation constraint 
+
+constraints_operation = {t: m.addConstr(
+    lhs = x_vars[t],
+    sense = GRB.EQUAL,
+    rhs=sigma_t[t] ,
+    name='Operation_{}'.format(t)
+) for t in range(0,T)}
+
+
+#Constraint Equations Thermal storage 
+
+constraints_thermal_balance1 = {t: m.addConstr(
+    lhs =-Q_demand[t] + Q_dot_discharge[t]-Q_dot_charge[t] +P_thermal[t-1] + P_hp_thermal[t],
+    sense = GRB.EQUAL,
+    rhs=0,
+    name='thermal_balance1_{}'.format(t)
+) for t in range(1,T)}
+
+constraints_thermal_balance2 = {t: m.addConstr(
+    lhs = mass_of_storage*cp*(T_sto[t]-T_sto[t-1]),
+    sense = GRB.EQUAL,
+    rhs= time_step_size/60*(P_hp_thermal[t]-Q_demand[t]-k_sto*A_sto*(T_sto[t]-20)*0.001 + P_thermal[t]),
+        name='thermal_balance2_{}'.format(t)
+        ) for t in range(1,T)}
+
+
+constraints_state_of_charge = {t: m.addConstr(
+    lhs =E_t[t+1],
+    sense = GRB.EQUAL,
+    rhs=E_t[t]+(time_step_size/60)*(Q_dot_charge[t] - Q_dot_discharge[t]-k_sto*A_sto*(T_sto[t]-20)),
+    name='State_of_charge_{}'.format(t)
+) for t in range(0,T-1)}
+
+
+ # <= contraints
+constraints_minTemperature = {t: m.addConstr(
+    lhs = min_temperature,
+    sense = GRB.LESS_EQUAL,
+    rhs=T_sto[t] + nu[t],
+    name='max_constraint_{}'.format(t)
+    ) for t in range(0,T)}
+
+
+ #>= contraints
+
+constraints_greater_eq3 = {t: m.addConstr(
+    lhs =maximum_temperature,
+    sense = GRB.GREATER_EQUAL,
+    rhs=T_sto[t],
+    name='min_constraint_{}'.format(t)
+     ) for t in range(0,T)}
+
+print("check")
