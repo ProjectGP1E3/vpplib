@@ -135,9 +135,17 @@ Q_dot_discharge={t:m.addVar(vtype=GRB.CONTINUOUS, name="Q_dot_discharge_{}".form
 
 T_sto={t:m.addVar(vtype=GRB.CONTINUOUS, name="Current_Temperature_{}".format(t)) for t in set_T}# storage temperature of TES in °C
 
+#x_vars = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0, ub=1, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
+x_vars = {t:m.addVar(vtype=GRB.BINARY, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
+
+
+P_hp_thermal={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_hp_thermal_{}".format(t)) for t in set_T} #thermal power of heat pump in[kW]
+
+P_hp_Elec={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_hp_Elec_{}".format(t)) for t in set_T} #Electricity consumption of heat pump in[kW]
+
 nu = {t:m.addVar(vtype=GRB.CONTINUOUS, name="nu_{}".format(t)) for t in set_T} # thermal disutility in °C
 
-
+weight_factor=10
 #Constraint Equations CHP
 
 # Define constraints uptime
@@ -211,35 +219,58 @@ constraints_rampdown_eq = {t: m.addConstr(
 #Constraint Equations Thermal storage interface CHP
 
 constraints_thermal_balance1 = {t: m.addConstr(
-    lhs =-Q_demand[t] + Q_dot_discharge[t]-Q_dot_charge[t] + P_thermal[t-1],
+    lhs =-Q_demand[t] + Q_dot_discharge[t]-Q_dot_charge[t] + P_thermal[t] + P_hp_thermal[t],
     sense = GRB.EQUAL,
     rhs=0,
     name='thermal_balance1_{}'.format(t)
 ) for t in range(1,T)}
 
+
+
 constraints_state_of_charge = {t: m.addConstr(
     lhs =E_t[t+1],
     sense = GRB.EQUAL,
-    rhs=E_t[t]+(time_step_size/60)*(Q_dot_charge[t] - Q_dot_discharge[t]),
+    rhs=E_t[t]+(time_step_size/60)*(Q_dot_charge[t] - Q_dot_discharge[t]-0.001*k_sto*A_sto*(T_sto[t]-20)),
     name='State_of_charge_{}'.format(t)
 ) for t in range(0,T-1)}
 
-constraints_storage_temperature = {t: m.addConstr(
-    lhs =T_sto[t],
-    sense = GRB.EQUAL,
-    rhs=E_t[t]/(mass_of_storage*cp) -273.15,
-    name='storage_temperature_{}'.format(t)
-) for t in range(0,T)}
 
 
 #Constraint Equations Heat pump
 
-""""
-need to be implemented here 
-not yet decided how to use the heat pump 
-option1: to charge the thermal storage and meet heat demand 
-option2: to meet indoor temperature demand  
-"""
+constraints_thermal_generation = {t: m.addConstr(
+    lhs = P_hp_thermal[t],
+    sense = GRB.EQUAL,
+    rhs=heat_pump_power(P_nom, T_a[t])*x_vars[t] ,
+    name='Thermalgeneration_{}'.format(t)
+) for t in range(0,T)}
+
+
+constraints_Electrical_Consumption = {t: m.addConstr(
+    lhs = P_hp_Elec[t],
+    sense = GRB.EQUAL,
+    rhs=el_power*x_vars[t] ,
+    name='ElectricalConsumption_{}'.format(t)
+) for t in range(0,T)}
+
+constraints_operation = {t: m.addConstr(
+    lhs = x_vars[t]+sigma_t[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=1,
+    name='Operation_{}'.format(t)
+) for t in range(0,T)}
+
+
+
+#Constraint Equation storage Temperature TES
+
+constraints_storage_temperature = {t: m.addConstr(
+    lhs =T_sto[t],
+    sense = GRB.EQUAL,
+    rhs=T_sto[t-1]+(E_t[t]-E_t[t-1])/(mass_of_storage*cp),
+    name='current_temperature_{}'.format(t)
+) for t in range(1,T)}
+
 
  # <= contraints
 constraints_min_state_of_charge = {t: m.addConstr(
@@ -248,6 +279,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
     rhs=E_t[t],
     name='max_constraint1_{}'.format(t)
     ) for t in range(0,T)}
+
 
 # <= contraints
 constraints_min_charge_rate = {t: m.addConstr(
@@ -270,7 +302,7 @@ constraints_minTemperature = {t: m.addConstr(
     lhs = min_temperature,
     sense = GRB.LESS_EQUAL,
     rhs=T_sto[t]+nu[t],
-    name='max_constraint_{}'.format(t)
+    name='max_constraint1_{}'.format(t)
     ) for t in range(0,T)}
 
 
@@ -283,10 +315,13 @@ constraints_maxTemperature= {t: m.addConstr(
     name='min_constraint_{}'.format(t)
      ) for t in range(0,T)}
 
+
 # Objective
 
-objective=gp.quicksum(-P_available[t] * P[t]  + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+
 m.setObjective(objective)
+
 m.ModelSense = GRB.MINIMIZE
 
  # Solve the optimization problem
@@ -296,7 +331,7 @@ m.optimize()
 # Extracting values from optimization results
 E_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
-nu_values = [m.getVarByName(varname.VarName).x for varname in nu.values()]
+x_vars_values = [m.getVarByName(varname.VarName).x for varname in x_vars.values()]
 
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
@@ -309,14 +344,14 @@ fig, ax1 = plt.subplots(figsize=(8, 6))
 color = 'tab:red'
 ax1.set_xlabel('Time Steps')
 ax1.set_ylabel('State of Charge (E_t)', color=color)
-ax1.plot(T_current_values[:960], color=color)
+ax1.plot(sigma_values[:960], color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
 # Creating a secondary y-axis for sigma_t (binary variable)++
 ax2 = ax1.twinx()
 color = 'tab:blue'
 ax2.set_ylabel('Binary Variable (sigma_t)', color=color)
-ax2.plot(sigma_values[:960], color=color)
+ax2.plot(Q_discharge_values[:960], color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()
