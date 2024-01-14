@@ -272,6 +272,7 @@ constraints_storage_temperature = {t: m.addConstr(
 ) for t in range(1,T)}
 
 
+
  # <= contraints
 constraints_min_state_of_charge = {t: m.addConstr(
     lhs = 0,
@@ -280,6 +281,14 @@ constraints_min_state_of_charge = {t: m.addConstr(
     name='max_constraint1_{}'.format(t)
     ) for t in range(0,T)}
 
+ #>= contraints
+
+constraints_max_state_of_charge= {t: m.addConstr(
+    lhs =700,
+    sense = GRB.GREATER_EQUAL,
+    rhs=E_t[t],
+    name='min_constraint2_{}'.format(t)
+     ) for t in range(0,T)}
 
 # <= contraints
 constraints_min_charge_rate = {t: m.addConstr(
@@ -331,7 +340,7 @@ m.optimize()
 # Extracting values from optimization results
 E_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
-x_vars_values = [m.getVarByName(varname.VarName).x for varname in x_vars.values()]
+nu_values = [m.getVarByName(varname.VarName).x for varname in nu.values()]
 
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
@@ -344,14 +353,14 @@ fig, ax1 = plt.subplots(figsize=(8, 6))
 color = 'tab:red'
 ax1.set_xlabel('Time Steps')
 ax1.set_ylabel('State of Charge (E_t)', color=color)
-ax1.plot(sigma_values[:960], color=color)
+ax1.plot(T_current_values[:960], color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
 # Creating a secondary y-axis for sigma_t (binary variable)++
 ax2 = ax1.twinx()
 color = 'tab:blue'
 ax2.set_ylabel('Binary Variable (sigma_t)', color=color)
-ax2.plot(Q_discharge_values[:960], color=color)
+ax2.plot(nu_values[:960], color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
 fig.tight_layout()
