@@ -152,6 +152,7 @@ try:
 
     test_observations_for_timestamp(storage, timestamp_int)
     test_observations_for_timestamp(storage, timestamp_str)
+    print(house_loadshape.residual_load)
 
 finally:
     storage.simses.close()
