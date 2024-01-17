@@ -184,8 +184,6 @@ SoC_values = [SoC[t].X for t in range(1, T-1)]  # Starting from 1 because we don
 SoC_values.insert(0,startSoC)
 time_steps = list(set_T)
 
-
-
 plt.figure(figsize=(12, 6))
 
 # Plotting Charging Power
@@ -221,3 +219,80 @@ plt.show()
 # print(ESS.timeseries.head())
 # ESS.timeseries.plot(figsize=(16, 9))
 # plt.show()
+
+
+#residuals and discharging
+fig, ax1 = plt.subplots(figsize=(10, 5))
+
+# Plotting prices on the primary y-axis
+ax1.plot(list(loadModel.keys()), list(loadModel.values()), label='residuals', color='b')
+ax1.set_ylabel('residuals', color='b')
+ax1.tick_params(axis='y', labelcolor='b')
+
+# Creating a secondary y-axis for discharging power
+ax2 = ax1.twinx()  
+ax2.plot(SoC_values, label='SOC', color='g')
+ax2.set_ylabel('SOC', color='g')
+ax2.tick_params(axis='y', labelcolor='g')
+
+# Adding legend
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+# Display the plot
+plt.show()
+
+#Plots on same axis charging, discharging, SOC
+fig, ax1 = plt.subplots(figsize=(12, 6))
+
+discharging_power_values = [-value for value in discharging_power_values]
+
+# Plotting Charging Power as positive bars
+ax1.bar(time_steps, charging_power_values, width=0.4, label='Charging Power', color='blue')
+
+# Plotting Discharging Power as negative bars
+ax1.bar(time_steps, discharging_power_values, width=0.4, label='Discharging Power', color='orange')
+
+# Creating a secondary y-axis for the SOC
+ax2 = ax1.twinx()
+
+# Plotting the SOC on the secondary y-axis
+ax2.plot(time_steps, SoC_values, label='SOC', color='black', linestyle='-')
+
+# Adding labels, title, and grid
+ax1.set_xlabel('Time Step')
+ax1.set_ylabel('Power (kW)', color='blue')
+ax2.set_ylabel('SOC', color='black')
+plt.title('Charging/Discharging Power and SOC over Time')
+ax1.grid(True)
+
+# Adding legends
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+# Making the y-axis label color match the data
+ax1.tick_params(axis='y', labelcolor='blue')
+ax2.tick_params(axis='y', labelcolor='black')
+
+plt.show()
+
+#pv and charging
+fig, ax3 = plt.subplots(figsize=(10, 5))
+
+# Plotting prices on the primary y-axis
+ax3.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='b')
+ax3.set_ylabel('PV', color='b')
+ax3.tick_params(axis='y', labelcolor='b')
+
+# Creating a secondary y-axis for discharging power
+ax4 = ax3.twinx()  
+ax4.plot(SoC_values, label='SOC', color='g')
+ax4.set_ylabel('SOC', color='g')
+ax4.tick_params(axis='y', labelcolor='g')
+
+# Adding legend
+ax3.legend(loc='upper left')
+ax4.legend(loc='upper right')
+
+# Display the plot
+plt.show()
