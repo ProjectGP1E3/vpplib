@@ -324,7 +324,6 @@ constraints_maxTemperature= {t: m.addConstr(
     name='min_constraint_{}'.format(t)
      ) for t in range(0,T)}
 
-
 # Objective
 
 objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
@@ -338,9 +337,9 @@ m.optimize()
 
 
 # Extracting values from optimization results
-E_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
+x_vars_values = [m.getVarByName(varname.VarName).x for varname in x_vars.values()]
 sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
-nu_values = [m.getVarByName(varname.VarName).x for varname in nu.values()]
+E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
@@ -352,17 +351,29 @@ fig, ax1 = plt.subplots(figsize=(8, 6))
 # Plotting E_t (state of charge)
 color = 'tab:red'
 ax1.set_xlabel('Time Steps')
-ax1.set_ylabel('State of Charge (E_t)', color=color)
-ax1.plot(T_current_values[:960], color=color)
+ax1.set_ylabel('Optimal operation of Heat pump(X_var)', color=color)
+ax1.plot(x_vars_values[:960], color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
 # Creating a secondary y-axis for sigma_t (binary variable)++
 ax2 = ax1.twinx()
 color = 'tab:blue'
-ax2.set_ylabel('Binary Variable (sigma_t)', color=color)
-ax2.plot(nu_values[:960], color=color)
+ax2.set_ylabel('Optimal operation of CHP (sigma_t)', color=color)
+ax2.plot(sigma_values[:960], color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
+
+# Adding Q_demand plot to the same graph
+ax3 = ax1.twinx()
+color = 'tab:green'
+ax3.spines['right'].set_position(('outward', 60))
+ax3.set_ylabel('charge rate of TES(kW)', color=color)
+ax3.plot(Q_charge_values[:960], color=color)
+ax3.tick_params(axis='y', labelcolor=color)
+
 fig.tight_layout()
-plt.title('State of Charge (E_t) and Binary Variable (sigma_t)')
+plt.title('Optimal operation of HP,CHP and charge rate of TES')
 plt.show()
+
+
+
