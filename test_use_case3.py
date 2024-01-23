@@ -146,7 +146,7 @@ baseload.drop(columns=["Time"], inplace=True)
 #Heat demand 
 thermal_demand_use = thermal_demand.iloc[0:num_hours, 0].values
 #Base load 
-baseload_use = baseload.iloc[0:num_hours, 0].values
+baseload_use = baseload.iloc[0:num_hours, 0].values/1000
 
 
 # Defining decision variables  Naveen/Aijaz
