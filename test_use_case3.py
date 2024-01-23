@@ -142,15 +142,23 @@ baseload = pd.read_csv("./input/baseload/df_S_15min.csv")
 baseload.drop(columns=["Time"], inplace=True)
 
 #create variables  
+#Price
+
+prices = environment.get_price_data()  #check the shape to be sure 
 
 #Heat demand 
 thermal_demand_use = thermal_demand.iloc[0:num_hours, 0].values
+
 #Base load 
 baseload_use = baseload.iloc[0:num_hours, 0].values/1000
 
+#price
+prices_use=prices.iloc[0:num_hours,0].values     #check shape 
 
 # Defining decision variables  Naveen/Aijaz
 Q_demand = {t: thermal_demand_use[(t *time_step_size)//60] for t in set_T}
+
+P = {t: prices_use[(t *time_step_size)//60] for t in set_T}  #check len 960 for 10days
 
 baseload_Model= {t: baseload_use[(t *time_step_size)//60] for t in set_T}
 
