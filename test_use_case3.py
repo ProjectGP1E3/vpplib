@@ -50,9 +50,9 @@ cp_bess=5 #BESS nominal capacity (kWh)
 charge_efficiency=0.9 #Charge efficiency of BESS 
 discharge_efficiency=0.9 #discharge efficiency of BESS
 #max_power=1000 #kWh
-max_ChargingPower=4
-max_DischargingPower=3
-max_SOC_bess=1 #Maximum State of Charge
+max_ChargingPower=0.4
+max_DischargingPower=0.3
+max_SOC_bess=4 #Maximum State of Charge
 min_SOC_bess=0.3 #Minimum State of Charge
 
 
@@ -164,9 +164,7 @@ P = {t: prices_use[(t *time_step_size)//60] for t in set_T}  #check len 960 for 
 
 baseload_Model= {t: baseload_use[(t *time_step_size)//60] for t in set_T}
 
-P_available = {t:m.addVar(vtype=GRB.CONTINUOUS,name="P_chp_l{}".format(t)) for t in set_T} # Power from CHP to electric load
-
-P_chp_b = {t:m.addVar(vtype=GRB.CONTINUOUS,name="P_chp_b{}".format(t)) for t in set_T} # Power from CHP to BESS (Charging power)
+P_available = {t:m.addVar(vtype=GRB.CONTINUOUS,name="P_chp_l{}".format(t)) for t in set_T} # total electrical power from chp
 
 chargingState = {t:m.addVar(vtype=GRB.INTEGER,lb=0,ub=1,name="chargingState_{}".format(t)) for t in set_T} # 0 or 1 based on the charging state
 
@@ -180,7 +178,7 @@ P_thermal={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_thermal{}".format(t)) for t 
 
 sigma_t = {t: m.addVar(vtype=GRB.BINARY, name="sigma_{}".format(t)) for t in set_T} # based on CHP operation
 
-E_t={t:m.addVar(vtype=GRB.CONTINUOUS, name="E_{}".format(t)) for t in set_T}# state of charge[KWh]
+E_t={t:m.addVar(vtype=GRB.CONTINUOUS, name="E_{}".format(t)) for t in set_T}# state of charge Thermal Storage[KWh]
 
 T_sto={t:m.addVar(vtype=GRB.CONTINUOUS, name="Current_Temperature_{}".format(t)) for t in set_T}# current temperature in °C
 
@@ -356,18 +354,11 @@ constraints_maxTemperature= {t: m.addConstr(
 
 #charging constraints 
 constraints_charging_power = {t: m.addConstr(
-    lhs = P_chp_b[t],
+    lhs = chargingPower[t],
     sense = GRB.LESS_EQUAL,
     rhs= P_available[t] ,
     name='chargingPower_constraint{}'.format(t)) 
     for t in set_T}
-
-constraints_charging_power1 = {t: m.addConstr(
-    lhs = P_chp_b[t],
-    sense = GRB.GREATER_EQUAL,
-    rhs = 0,
-    name = 'BESS_Charging{}'.format(t)
-) for t in range(0,T)}
 
 #constraints Power from CHP to electric load 
 constraints_energyDemand={t: m.addConstr(
@@ -377,26 +368,17 @@ constraints_energyDemand={t: m.addConstr(
     name='energyDemand_Constraint{}'.format(t))
     for t in set_T} # type: ignore 
 
-#charging constraints 
-constraints_charging_power2 = {t: m.addConstr(
-    lhs = P_chp_b[t],
-    sense = GRB.EQUAL,
-    rhs= chargingPower[t] ,
-    name='chargingPower_constraint_2{}'.format(t)) 
-    for t in set_T}
-
-
 #Constraint SoC of BESS 
 constraints_SOC={t: m.addConstr(
-    lhs = cp_bess*SOC[t] + charge_efficiency*delta_t*P_chp_b[t]-dischargingPower[t]*discharge_efficiency*delta_t,
+    lhs = SOC[t] + charge_efficiency*delta_t*chargingPower[t]-dischargingPower[t]*discharge_efficiency*delta_t,
     sense = GRB.LESS_EQUAL,
-    rhs= cp_bess,
+    rhs= max_SOC_bess,
     name='Max_SOC_Constraint{}'.format(t)) for t in range(1,T)} 
 
 constraints_SOC_Constraint = {t: m.addConstr(
     lhs=SOC[t+1] ,
     sense = GRB.EQUAL,
-    rhs= SOC[t]-cp_bess*dischargingPower[t]*discharge_efficiency + cp_bess*P_chp_b[t]*charge_efficiency,
+    rhs= SOC[t]-dischargingPower[t]*discharge_efficiency + chargingPower[t]*charge_efficiency,
     name='charge_constraint_{}'.format(t)) 
     for t in range(0,T-1)}
 
@@ -425,11 +407,20 @@ constraints_discharging_power3 = {t: m.addConstr(
     rhs= dischargingState[t] * max_DischargingPower ,
     name='dischargingPower_constraint_3{}'.format(t)) 
     for t in set_T}
+
+
+# starting Soc 
+constraints_SOC[0]={m.addConstr(
+    lhs = SOC[0],
+    sense = GRB.EQUAL,
+    rhs= min_SOC_bess,
+    name='min_Soc_constraint_{}'.format(0))} 
+
 # Defined objective function ---Desmond
 
 #Objective function with Price to run the chp base on Dayahead price 
 
-#objective=gp.quicksum(-P_available[t]* P[t]-P_chp_b[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+#objective=gp.quicksum(-P_available[t]* P[t]-chargingPower[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
 
 """
 This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
@@ -438,7 +429,7 @@ open for discussion
 ##objective = gp.quicksum(P_available[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
 """
 #objective function with price for battery optimisation 
-objective = gp.quicksum(-1 * chargingPower[t] * time_step_size *P[t] + (dischargingPower[t] - dischargingState[t] *baseload_Model[t])* time_step_size *P[t] - (P_available[t] )* time_step_size *P[t] for t in set_T) # type: igno
+objective = gp.quicksum(chargingPower[t] * time_step_size *P[t] - (dischargingPower[t] - dischargingState[t] *baseload_Model[t])* time_step_size *P[t] + P_chp_l[t] * time_step_size *P[t] for t in set_T) # type: igno
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
 # Solve the optimization problem
@@ -448,11 +439,12 @@ m.optimize()
 # Extracting values from optimization results
 sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
+SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
-P_chp_b_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
+dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 # Plotting E_t and sigma_t on the same graph with different y-axes
 fig, ax1 = plt.subplots(figsize=(8, 6))
 
@@ -460,24 +452,27 @@ fig, ax1 = plt.subplots(figsize=(8, 6))
 color = 'tab:red'
 ax1.set_xlabel('Time Steps')
 ax1.set_ylabel('Optimal operation of CHP', color=color)
-ax1.plot(sigma_values[:960], color=color)
+ax1.plot(sigma_values[:200], color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
 # Creating a secondary y-axis for sigma_t (binary variable)++
 ax2 = ax1.twinx()
 color = 'tab:blue'
 ax2.set_ylabel('Charging state (sigma_t)', color=color)
-ax2.plot(chargingState_values[:960], color=color)
+ax2.plot(dischargePower_values[:200], color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
 
 # Adding Q_demand plot to the same graph
+"""
 ax3 = ax1.twinx()
 color = 'tab:green'
 ax3.spines['right'].set_position(('outward', 60))
 ax3.set_ylabel('Battery electrical', color=color)
-ax3.plot(P_chp_b_values[:960], color=color)
+ax3.plot(chargePower_values[:200], color=color)
 ax3.tick_params(axis='y', labelcolor=color)
+"""
+
 
 fig.tight_layout()
 plt.title('Optimal operation of HP,CHP and charge rate of TES')
