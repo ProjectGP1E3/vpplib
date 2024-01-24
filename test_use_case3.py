@@ -307,14 +307,6 @@ constraints_charging_power2 = {t: m.addConstr(
     name='chargingPower_constraint_2{}'.format(t)) 
     for t in set_T}
 
-
-constraints_discharging_power1 = {t: m.addConstr(
-    lhs = dischargingPower[t],
-    sense = GRB.EQUAL,
-    rhs = baseload_Model[t] - P_chp_l[t], # Power drawn from the BESS to meet the residual load( = Baseload - Power from CHP)
-    name = 'BESS_Discharging{}'.format(t)
-) for t in range(0,T)}
-
 constraints_charging_power1 = {t: m.addConstr(
     lhs = P_chp_b[t],
     sense = GRB.GREATER_EQUAL,
@@ -363,7 +355,6 @@ constraints_discharging_power2 = {t: m.addConstr(
 # Defined objective function ---Desmond
 
 objective = gp.quicksum(P_available[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
-
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
 # Solve the optimization problem
