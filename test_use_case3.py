@@ -50,8 +50,8 @@ cp_bess=5 #BESS nominal capacity (kWh)
 charge_efficiency=0.9 #Charge efficiency of BESS 
 discharge_efficiency=0.9 #discharge efficiency of BESS
 #max_power=1000 #kWh
-max_ChargingPower=3
-max_DischargingPower=2
+max_ChargingPower=4
+max_DischargingPower=3
 max_SOC_bess=1 #Maximum State of Charge
 min_SOC_bess=0.3 #Minimum State of Charge
 
@@ -358,7 +358,7 @@ constraints_maxTemperature= {t: m.addConstr(
 constraints_charging_power = {t: m.addConstr(
     lhs = P_chp_b[t],
     sense = GRB.LESS_EQUAL,
-    rhs= sigma_t[t]*P_available[t] ,
+    rhs= P_available[t] ,
     name='chargingPower_constraint{}'.format(t)) 
     for t in set_T}
 
@@ -413,9 +413,9 @@ constraints_BESS_State1 = {t: m.addConstr(
     for t in set_T}
 
 constraints_charging_power3 = {t: m.addConstr(
-    lhs = P_chp_b[t],
+    lhs = chargingPower[t],
     sense = GRB.LESS_EQUAL,
-    rhs=  max_ChargingPower ,
+    rhs=  chargingState[t]*max_ChargingPower ,
     name='chargingPower_constraint_3{}'.format(t)) 
     for t in set_T}
 
@@ -429,7 +429,7 @@ constraints_discharging_power3 = {t: m.addConstr(
 
 #Objective function with Price to run the chp base on Dayahead price 
 
-objective=gp.quicksum(-P_available[t]* P[t]-P_chp_b[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+#objective=gp.quicksum(-P_available[t]* P[t]-P_chp_b[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
 
 """
 This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
@@ -437,7 +437,8 @@ open for discussion
 
 ##objective = gp.quicksum(P_available[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
 """
-
+#objective function with price for battery optimisation 
+objective = gp.quicksum(-1 * chargingPower[t] * time_step_size *P[t] + (dischargingPower[t] - dischargingState[t] *baseload_Model[t])* time_step_size *P[t] - (P_available[t] )* time_step_size *P[t] for t in set_T) # type: igno
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
 # Solve the optimization problem
