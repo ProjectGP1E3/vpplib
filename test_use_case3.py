@@ -132,6 +132,7 @@ set_T = range(0,T)
 
 # Create models
 m = gp.Model('MIP')
+m.setParam('TimeLimit',3*60)
 
 # Access environmental data using the Environment instance ---Naveen
 
@@ -424,12 +425,12 @@ constraints_SOC[0]={m.addConstr(
 
 """
 This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
-open for discussion 
+open for discussion """
 
-##objective = gp.quicksum(P_available[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
-"""
+objective = gp.quicksum(P_chp_l[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
+
 #objective function with price for battery optimisation 
-objective = gp.quicksum(chargingPower[t] * time_step_size *P[t] - (dischargingPower[t] - dischargingState[t] *baseload_Model[t])* time_step_size *P[t] + P_chp_l[t] * time_step_size *P[t] for t in set_T) # type: igno
+#objective = gp.quicksum(chargingPower[t] * time_step_size *P[t] - dischargingPower[t]* time_step_size *P[t] + P_chp_l[t] * time_step_size *P[t] for t in set_T) 
 m.ModelSense = GRB.MINIMIZE
 m.setObjective(objective)
 # Solve the optimization problem
@@ -445,6 +446,7 @@ SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
+E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 # Plotting E_t and sigma_t on the same graph with different y-axes
 fig, ax1 = plt.subplots(figsize=(8, 6))
 
@@ -458,8 +460,8 @@ ax1.tick_params(axis='y', labelcolor=color)
 # Creating a secondary y-axis for sigma_t (binary variable)++
 ax2 = ax1.twinx()
 color = 'tab:blue'
-ax2.set_ylabel('Charging state (sigma_t)', color=color)
-ax2.plot(dischargePower_values[:200], color=color)
+ax2.set_ylabel('SOC Values', color=color)
+ax2.plot(SOC_values[:200], color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
 
