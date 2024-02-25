@@ -63,6 +63,8 @@ Env_temperature= 21   # °C
 mass_of_storage = 500  # kg
 cp = 4.2  #specific heat capacity of storage in kJ/kg/K
 thermal_energy_loss_per_day = 0.13
+min_discharge_rate=0
+max_discharge_rate=3
 
 
 #Parameter for Environment
@@ -333,13 +335,6 @@ constraints_min_discharge_rate = {t: m.addConstr(
     name='max_constraint3_{}'.format(t)
     ) for t in range(0,T)}
 
-constraints_max_discharge_rate= {t: m.addConstr(
-    lhs =4,
-    sense = GRB.GREATER_EQUAL,
-    rhs=Q_dot_discharge[t],
-    name='max_constraint_{}'.format(t)
-     ) for t in range(0,T)}
-
 
  # <= contraints
 constraints_minTemperature = {t: m.addConstr(
@@ -436,7 +431,7 @@ constraints_SOC[0]={m.addConstr(
 This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
 open for discussion """
 
-objective = gp.quicksum(-dischargingPower[t]*P[t]*1000-Q_dot_discharge[t]*C_fuel + sigma_startup[t] * C_startup + P_fuel[t] * C_fuel + sigma_shortdown[t] * C_shortdown +nu[t]*comfort_fact for t in set_T)
+objective = gp.quicksum(-dischargingPower[t]*P[t]*1000 + sigma_startup[t] * C_startup + P_fuel[t] * C_fuel + sigma_shortdown[t] * C_shortdown +nu[t]*comfort_fact for t in set_T)
 
 #objective function with price for battery optimisation 
 #objective = gp.quicksum(chargingPower[t] * time_step_size *P[t] - dischargingPower[t]* time_step_size *P[t] + P_chp_l[t] * time_step_size *P[t] for t in set_T) 
@@ -447,7 +442,7 @@ m.optimize()
 
 
 # Extracting values from optimization results
-sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
+P_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_thermal.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 
@@ -458,44 +453,36 @@ dischargePower_values = [m.getVarByName(varname.VarName).x for varname in discha
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 # Plotting E_t and sigma_t on the same graph with different y-axes
-fig, ax1 = plt.subplots(figsize=(8, 6))
 
-# Plotting E_t (state of charge)
-color = 'tab:red'
-ax1.set_xlabel('Time Steps')
-ax1.set_ylabel('Optimal operation of CHP', color=color)
-ax1.plot(sigma_values[:200], color=color)
-ax1.tick_params(axis='y', labelcolor=color)
+# Create time axis for plotting
+time_axis = range(len(P))
 
-# Creating a secondary y-axis for sigma_t (binary variable)++
-ax2 = ax1.twinx()
-color = 'tab:blue'
-ax2.set_ylabel('SoC values', color=color)
-ax2.plot(SOC_values[:200], color=color)
-ax2.tick_params(axis='y', labelcolor=color)
+# Create subplots
+fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-ax3 = ax1.twinx()
-color = 'tab:green'
-ax3.spines['right'].set_position(('outward', 60))
-ax3.set_ylabel('Price (Euro/kwh))', color=color)
-ax3.plot(list(P.values())[:200], color=color)
-ax3.tick_params(axis='y', labelcolor=color)
+# Plot State of Charge (Thermal Storage)
+# Plot Thermal Demand (Q_demand)
+axs[0].plot(time_axis, [Q_demand[t] for t in set_T], color='blue', label='Thermal demand')
+axs[0].set_ylabel('Thermal demand(kW)')
+axs[0].grid(True)
+axs[0].legend()
 
+# Plot CHP operation (sigma_values)
+axs[1].plot(time_axis, P_thermal_values, color='red', label='Thermal Power')
+axs[1].set_ylabel('Thermal Power(kW)')
+axs[1].grid(True)
+axs[1].legend()
 
+# Plot Heat Pump operation (x_vars_values)
+axs[2].plot(time_axis, Q_discharge_values, color='green', label='Discharge rate of TES')
+axs[2].set_xlabel('Time')
+axs[2].set_ylabel('Discharge rate(kW)')
+axs[2].grid(True)
+axs[2].legend()
 
- 
+# Add a title
+plt.suptitle('Thermal heat demand VS Thermal heat generated of CHP and Discharge rate of TES  10 Days ')
 
-# Adding Q_demand plot to the same graph
-"""
-ax3 = ax1.twinx()
-color = 'tab:green'
-ax3.spines['right'].set_position(('outward', 60))
-ax3.set_ylabel('Battery electrical', color=color)
-ax3.plot(chargePower_values[:200], color=color)
-ax3.tick_params(axis='y', labelcolor=color)
-"""
-
-
-fig.tight_layout()
-plt.title('Optimal operation of HP,CHP and charge rate of TES')
+# Adjust layout
+plt.tight_layout()
 plt.show()
