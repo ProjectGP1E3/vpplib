@@ -342,38 +342,43 @@ sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values(
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 
 
-Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
-Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
+P_hp_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_hp_thermal.values()]
+P_thermal_values = [m.getVarByName(varname.VarName).x for varname in  P_thermal.values()]
+Q_dot_discharge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_discharge.values()]
+
+Q_dot_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
+
 T_current_values = [m.getVarByName(varname.VarName).x for varname in T_sto.values()]
-# Plotting E_t and sigma_t on the same graph with different y-axes
-fig, ax1 = plt.subplots(figsize=(8, 6))
-
-# Plotting E_t (state of charge)
-color = 'tab:red'
-ax1.set_xlabel('Time Steps')
-ax1.set_ylabel('Optimal operation of Heat pump(X_var)', color=color)
-ax1.plot(x_vars_values[:960], color=color)
-ax1.tick_params(axis='y', labelcolor=color)
-
-# Creating a secondary y-axis for sigma_t (binary variable)++
-ax2 = ax1.twinx()
-color = 'tab:blue'
-ax2.set_ylabel('Optimal operation of CHP (sigma_t)', color=color)
-ax2.plot(sigma_values[:960], color=color)
-ax2.tick_params(axis='y', labelcolor=color)
 
 
-# Adding Q_demand plot to the same graph
-ax3 = ax1.twinx()
-color = 'tab:green'
-ax3.spines['right'].set_position(('outward', 60))
-ax3.set_ylabel('charge rate of TES(kW)', color=color)
-ax3.plot(Q_charge_values[:960], color=color)
-ax3.tick_params(axis='y', labelcolor=color)
+# Create time axis for plotting
+time_axis = range(len(P))
 
-fig.tight_layout()
-plt.title('Optimal operation of HP,CHP and charge rate of TES')
+# Create subplots
+fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+
+# Plot State of Charge (Thermal Storage)
+axs[0].plot(time_axis, T_current_values, color='blue', label='Storage Temperature')
+axs[0].set_ylabel('Temperature(°C)')
+axs[0].grid(True)
+axs[0].legend()
+
+# Plot CHP operation (sigma_values)
+axs[1].plot(time_axis, sigma_values, color='red', label='CHP Operation (sigma)')
+axs[1].set_ylabel('CHP Operation')
+axs[1].grid(True)
+axs[1].legend()
+
+# Plot Heat Pump operation (x_vars_values)
+axs[2].plot(time_axis, x_vars_values, color='green', label='Heat Pump Operation (x_vars)')
+axs[2].set_xlabel('Time')
+axs[2].set_ylabel('Heat Pump Operation')
+axs[2].grid(True)
+axs[2].legend()
+
+# Add a title
+plt.suptitle('Optimal Operation of CHP and Heat Pump along with Charge rate of Thermal Storage  10 Days ')
+
+# Adjust layout
+plt.tight_layout()
 plt.show()
-
-
-
