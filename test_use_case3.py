@@ -443,6 +443,7 @@ m.optimize()
 
 # Extracting values from optimization results
 P_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_thermal.values()]
+P_available_values = [m.getVarByName(varname.VarName).x for varname in P_available.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 
@@ -462,26 +463,26 @@ fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
 # Plot State of Charge (Thermal Storage)
 # Plot Thermal Demand (Q_demand)
-axs[0].plot(time_axis, [Q_demand[t] for t in set_T], color='blue', label='Thermal demand')
-axs[0].set_ylabel('Thermal demand(kW)')
+axs[0].plot(time_axis, [P[t] for t in set_T], color='blue', label='Price')
+axs[0].set_ylabel('Price(EUR/MWh)')
 axs[0].grid(True)
 axs[0].legend()
 
 # Plot CHP operation (sigma_values)
-axs[1].plot(time_axis, P_thermal_values, color='red', label='Thermal Power')
-axs[1].set_ylabel('Thermal Power(kW)')
+axs[1].plot(time_axis, P_available_values, color='red', label='Electrical Power')
+axs[1].set_ylabel('Electrical Power(kW)')
 axs[1].grid(True)
 axs[1].legend()
 
 # Plot Heat Pump operation (x_vars_values)
-axs[2].plot(time_axis, Q_discharge_values, color='green', label='Discharge rate of TES')
+axs[2].plot(time_axis, SOC_values, color='green', label='SoC Battery')
 axs[2].set_xlabel('Time')
-axs[2].set_ylabel('Discharge rate(kW)')
+axs[2].set_ylabel('SoC Battery(kWh)')
 axs[2].grid(True)
 axs[2].legend()
 
 # Add a title
-plt.suptitle('Thermal heat demand VS Thermal heat generated of CHP and Discharge rate of TES  10 Days ')
+plt.suptitle('Price, Electrical Power from CHP, SoC of Battery for 10 Days ')
 
 # Adjust layout
 plt.tight_layout()
