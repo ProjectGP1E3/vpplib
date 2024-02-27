@@ -444,8 +444,11 @@ m.optimize()
 # Extracting values from optimization results
 P_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_thermal.values()]
 P_available_values = [m.getVarByName(varname.VarName).x for varname in P_available.values()]
+sigma_t_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
+chargingPower_values = [m.getVarByName(varname.VarName).x for varname in chargingPower.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
+SOC_percentage = [(soc / max_SOC_bess) * 100 for soc in SOC_values]
 
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
@@ -461,28 +464,27 @@ time_axis = range(len(P))
 # Create subplots
 fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-# Plot State of Charge (Thermal Storage)
-# Plot Thermal Demand (Q_demand)
-axs[0].plot(time_axis, [P[t] for t in set_T], color='blue', label='Price')
-axs[0].set_ylabel('Price(EUR/MWh)')
+# Plot CHP operation (sigma_values)
+axs[0].plot(time_axis, SOC_values, color='red', label='SoC Battery')
+axs[0].set_ylabel('SoC battery(kWh)')
 axs[0].grid(True)
 axs[0].legend()
 
-# Plot CHP operation (sigma_values)
-axs[1].plot(time_axis, P_available_values, color='red', label='Electrical Power')
-axs[1].set_ylabel('Electrical Power(kW)')
+# Plot Thermal Demand (Q_demand)
+axs[1].plot(time_axis, chargingState_values, color='blue', label='Charging state of Battery')
+axs[1].set_ylabel('Charging state')
 axs[1].grid(True)
 axs[1].legend()
 
 # Plot Heat Pump operation (x_vars_values)
-axs[2].plot(time_axis, SOC_values, color='green', label='SoC Battery')
+axs[2].plot(time_axis, dischargestate_values, color='green', label='Discharging state of Battery')
 axs[2].set_xlabel('Time')
-axs[2].set_ylabel('SoC Battery(kWh)')
+axs[2].set_ylabel('Discharging state')
 axs[2].grid(True)
 axs[2].legend()
 
 # Add a title
-plt.suptitle('Price, Electrical Power from CHP, SoC of Battery for 10 Days ')
+plt.suptitle('Battery SoC, Battery charge and discharge state for 10 Days ')
 
 # Adjust layout
 plt.tight_layout()
