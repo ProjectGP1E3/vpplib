@@ -12,9 +12,9 @@ from vpplib.electrical_energy_storage import ElectricalEnergyStorageSimses
 
 C_operating=13 #CHP operating cost [Euro=kwh]
 comfort_fact=10
-C_fuel=10
-C_shortdown=10  
-C_startup=10 # CHP startup cost [Euro=kwh]
+C_fuel=0.119  #Euro/kwh
+C_shortdown=0.495  #Euro/kwh 
+C_startup=0.495 # CHP startup cost [Euro/kwh]
 eta_total = 0.8  # Total efficiency of the CHP
 delta_t = 15 #Time-step
 chp_Pel_max=4 #Max electric power of CHP
@@ -63,6 +63,8 @@ Env_temperature= 21   # °C
 mass_of_storage = 500  # kg
 cp = 4.2  #specific heat capacity of storage in kJ/kg/K
 thermal_energy_loss_per_day = 0.13
+min_discharge_rate=0
+max_discharge_rate=3
 
 
 #Parameter for Environment
@@ -167,11 +169,11 @@ baseload_Model= {t: baseload_use[(t *time_step_size)//60] for t in set_T}
 
 P_available = {t:m.addVar(vtype=GRB.CONTINUOUS,name="P_chp_l{}".format(t)) for t in set_T} # total electrical power from chp
 
-chargingState = {t:m.addVar(vtype=GRB.INTEGER,lb=0,ub=1,name="chargingState_{}".format(t)) for t in set_T} # 0 or 1 based on the charging state
+chargingState = {t:m.addVar(vtype=GRB.BINARY,name="chargingState_{}".format(t)) for t in set_T} # 0 or 1 based on the charging state
 
 chargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=max_ChargingPower,name="chargingPower_{}".format(t)) for t in set_T}
 
-dischargingState = {t:m.addVar(vtype=GRB.INTEGER ,lb=0,ub=1,name="dischargingState_{}".format(t)) for t in set_T} # 0 or 1 based on the discharging state
+dischargingState = {t:m.addVar(vtype=GRB.BINARY ,name="dischargingState_{}".format(t)) for t in set_T} # 0 or 1 based on the discharging state
 
 dischargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=max_DischargingPower,name="dischargingPower_{}".format(t)) for t in set_T}
 
@@ -333,6 +335,7 @@ constraints_min_discharge_rate = {t: m.addConstr(
     name='max_constraint3_{}'.format(t)
     ) for t in range(0,T)}
 
+
  # <= contraints
 constraints_minTemperature = {t: m.addConstr(
     lhs = min_temperature,
@@ -355,15 +358,16 @@ constraints_maxTemperature= {t: m.addConstr(
 
 #charging constraints 
 constraints_charging_power = {t: m.addConstr(
-    lhs = chargingPower[t],
+    lhs = chargingPower[t], 
     sense = GRB.LESS_EQUAL,
     rhs= P_available[t] ,
     name='chargingPower_constraint{}'.format(t)) 
     for t in set_T}
 
+
 #constraints Power from CHP to electric load 
 constraints_energyDemand={t: m.addConstr(
-    lhs = P_chp_l[t]+ dischargingPower[t] ,
+    lhs = sigma_t[t]*P_chp_l[t]+ dischargingPower[t] ,
     sense = GRB.EQUAL,
     rhs= baseload_Model[t] ,
     name='energyDemand_Constraint{}'.format(t))
@@ -427,7 +431,7 @@ constraints_SOC[0]={m.addConstr(
 This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
 open for discussion """
 
-objective = gp.quicksum(P_chp_l[t]*C_operating  +sigma_startup[t] * C_startup  for t in set_T)
+objective = gp.quicksum(-dischargingPower[t]*P[t]*1000 + sigma_startup[t] * C_startup + P_fuel[t] * C_fuel + sigma_shortdown[t] * C_shortdown +nu[t]*comfort_fact for t in set_T)
 
 #objective function with price for battery optimisation 
 #objective = gp.quicksum(chargingPower[t] * time_step_size *P[t] - dischargingPower[t]* time_step_size *P[t] + P_chp_l[t] * time_step_size *P[t] for t in set_T) 
@@ -438,7 +442,7 @@ m.optimize()
 
 
 # Extracting values from optimization results
-sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
+P_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_thermal.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 
@@ -446,36 +450,39 @@ SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
+dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 # Plotting E_t and sigma_t on the same graph with different y-axes
-fig, ax1 = plt.subplots(figsize=(8, 6))
 
-# Plotting E_t (state of charge)
-color = 'tab:red'
-ax1.set_xlabel('Time Steps')
-ax1.set_ylabel('Optimal operation of CHP', color=color)
-ax1.plot(sigma_values[:200], color=color)
-ax1.tick_params(axis='y', labelcolor=color)
+# Create time axis for plotting
+time_axis = range(len(P))
 
-# Creating a secondary y-axis for sigma_t (binary variable)++
-ax2 = ax1.twinx()
-color = 'tab:blue'
-ax2.set_ylabel('SOC Values', color=color)
-ax2.plot(SOC_values[:200], color=color)
-ax2.tick_params(axis='y', labelcolor=color)
+# Create subplots
+fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
+# Plot State of Charge (Thermal Storage)
+# Plot Thermal Demand (Q_demand)
+axs[0].plot(time_axis, [Q_demand[t] for t in set_T], color='blue', label='Thermal demand')
+axs[0].set_ylabel('Thermal demand(kW)')
+axs[0].grid(True)
+axs[0].legend()
 
-# Adding Q_demand plot to the same graph
-"""
-ax3 = ax1.twinx()
-color = 'tab:green'
-ax3.spines['right'].set_position(('outward', 60))
-ax3.set_ylabel('Battery electrical', color=color)
-ax3.plot(chargePower_values[:200], color=color)
-ax3.tick_params(axis='y', labelcolor=color)
-"""
+# Plot CHP operation (sigma_values)
+axs[1].plot(time_axis, P_thermal_values, color='red', label='Thermal Power')
+axs[1].set_ylabel('Thermal Power(kW)')
+axs[1].grid(True)
+axs[1].legend()
 
+# Plot Heat Pump operation (x_vars_values)
+axs[2].plot(time_axis, Q_discharge_values, color='green', label='Discharge rate of TES')
+axs[2].set_xlabel('Time')
+axs[2].set_ylabel('Discharge rate(kW)')
+axs[2].grid(True)
+axs[2].legend()
 
-fig.tight_layout()
-plt.title('Optimal operation of HP,CHP and charge rate of TES')
+# Add a title
+plt.suptitle('Thermal heat demand VS Thermal heat generated of CHP and Discharge rate of TES  10 Days ')
+
+# Adjust layout
+plt.tight_layout()
 plt.show()
