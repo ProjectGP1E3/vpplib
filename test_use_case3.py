@@ -444,16 +444,20 @@ m.optimize()
 # Extracting values from optimization results
 P_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_thermal.values()]
 P_available_values = [m.getVarByName(varname.VarName).x for varname in P_available.values()]
+sigma_t_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
+chargingPower_values = [m.getVarByName(varname.VarName).x for varname in chargingPower.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
-
+SOC_percentage = [(soc / max_SOC_bess) * 100 for soc in SOC_values]
+Price = [P[t] for t in set_T]
+Baseload_Values = [baseload_Model[t] for t in set_T]
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
-# Plotting E_t and sigma_t on the same graph with different y-axes
+Q_demand_values = [Q_demand[t] for t in set_T]
 
 # Create time axis for plotting
 time_axis = range(len(P))
