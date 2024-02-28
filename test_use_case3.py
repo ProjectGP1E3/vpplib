@@ -497,7 +497,7 @@ plot(time_axis, Price, sigma_t_values, Baseload_Values,
      "Optimal operation of CHP along with Price and Baseload")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Q_charge_values, P_thermal_values, Q_discharge_values, 
+plot(time_axis, Q_demand_values, P_thermal_values, Q_discharge_values, 
      "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
      "Thermal demand", "Thermal Power", "Discharge rate of TES", 
      "Thermal Power generated, heat demand and discharge of TES")
