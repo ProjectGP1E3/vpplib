@@ -508,8 +508,8 @@ plot(time_axis, Baseload_Values, P_available_values, dischargePower_values,
      "Electrical Power generated, baseload and discharge of BESS")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Price, P_available_values, SOC_values, 
-     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(kWh)", 
+plot(time_axis, Price, P_available_values, SOC_percentage, 
+     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(%)", 
      "Price", "Electrical Power", "SoC Battety", 
      "Electrical Power generated, SoC and Price")
 
