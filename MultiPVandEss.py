@@ -34,7 +34,7 @@ class PvBessOptimization():
 
         # Values for environment
         self.start = "2015-05-01 12:00:00"
-        self.end = "2015-05-01 23:45:00"
+        self.end = "2015-05-10 23:45:00"
         self.number_of_days=1
         self.year = "2015"
         self.time_freq = "15 min"
@@ -139,7 +139,7 @@ class PvBessOptimization():
 
     def pvbess_model(self):
         time_step_size = 15
-        number_of_days = 1
+        number_of_days = 10
         num_hours=number_of_days*24
         num_time_step=int(num_hours*60//time_step_size)
         T = num_time_step
@@ -239,24 +239,31 @@ class PvBessOptimization():
 
 
         #residuals and discharging
-        fig, ax1 = plt.subplots(figsize=(10, 5))
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))  # Create 3 subplots
 
-        # Plotting prices on the primary y-axis
+        # Plotting residuals on the first subplot
         ax1.plot(list(loadModel.keys()), list(loadModel.values()), label='residuals', color='b')
-        ax1.set_ylabel('residuals', color='b')
+        ax1.set_ylabel('Residuals', color='b')
         ax1.tick_params(axis='y', labelcolor='b')
+        ax1.grid(True)  # Add grid
+        ax1.legend(loc='upper left')
 
-        # Creating a secondary y-axis for discharging power
-        ax2 = ax1.twinx()  
+        # Plotting SOC on the second subplot
         ax2.plot(SoC_values, label='SOC', color='g')
         ax2.set_ylabel('SOC', color='g')
         ax2.tick_params(axis='y', labelcolor='g')
+        ax2.grid(True)  # Add grid
+        ax2.legend(loc='upper left')
 
-        # Adding legend
-        ax1.legend(loc='upper left')
-        ax2.legend(loc='upper right')
+        # Plotting price on the third subplot
+        ax3.plot(prices_use, label='Price', color='r')
+        ax3.set_ylabel('Price', color='r')
+        ax3.tick_params(axis='y', labelcolor='r')
+        ax3.grid(True)  # Add grid
+        ax3.legend(loc='upper left')
 
         # Display the plot
+        plt.tight_layout()  # Adjust layout
         plt.show()
 
         #Plots on same axis charging, discharging, SOC
@@ -294,26 +301,40 @@ class PvBessOptimization():
         plt.show()
 
         #pv and charging
-        fig, ax3 = plt.subplots(figsize=(10, 5))
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
 
-        # Plotting prices on the primary y-axis
-        ax3.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='b')
-        ax3.set_ylabel('PV', color='b')
-        ax3.tick_params(axis='y', labelcolor='b')
+        # Plotting PV power model on the first subplot
+        ax1.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='b')
+        ax1.set_ylabel('PV', color='b')
+        ax1.tick_params(axis='y', labelcolor='b')
+        ax1.legend(loc='upper left')
+        ax1.set_title('PV Power Model')
+        ax1.grid(True)  # Enable grid
 
-        # Creating a secondary y-axis for discharging power
-        ax4 = ax3.twinx()  
-        ax4.plot(SoC_values, label='SOC', color='g')
-        ax4.set_ylabel('SOC', color='g')
-        ax4.tick_params(axis='y', labelcolor='g')
+        # Plotting SOC on the second subplot
+        ax2.plot(SoC_values, label='SOC', color='g')
+        ax2.set_ylabel('SOC', color='g')
+        ax2.tick_params(axis='y', labelcolor='g')
+        ax2.legend(loc='upper left')
+        ax2.set_title('State of Charge')
+        ax2.grid(True)  # Enable grid
 
-        # Adding legend
+        # Plotting Price on the third subplot
+        ax3.plot(prices_use, label='Price', color='r')
+        ax3.set_ylabel('Price', color='r')
+        ax3.tick_params(axis='y', labelcolor='r')
         ax3.legend(loc='upper left')
-        ax4.legend(loc='upper right')
+        ax3.set_title('Price')
+        ax3.grid(True)  # Enable grid
+
+        # Optionally, set a common x-axis label
+        fig.text(0.5, 0.04, 'Time', ha='center')
+
+        # Adjust layout for better spacing
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         # Display the plot
         plt.show()
-
 if __name__ == "__main__":
     optimization = PvBessOptimization()
     optimization.pvbess_model()
