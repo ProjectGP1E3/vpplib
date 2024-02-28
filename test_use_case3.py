@@ -463,31 +463,58 @@ Q_demand_values = [Q_demand[t] for t in set_T]
 time_axis = range(len(P))
 
 # Create subplots
-fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-# Plot State of Charge (Thermal Storage)
-# Plot Thermal Demand (Q_demand)
-axs[0].plot(time_axis, [P[t] for t in set_T], color='blue', label='Price')
-axs[0].set_ylabel('Price(EUR/MWh)')
-axs[0].grid(True)
-axs[0].legend()
+    axs[0].plot(x, y1, color='red', label=legend_1)
+    axs[0].set_ylabel(y1_label)
+    axs[0].grid(True)
+    axs[0].legend()
 
-# Plot CHP operation (sigma_values)
-axs[1].plot(time_axis, P_available_values, color='red', label='Electrical Power')
-axs[1].set_ylabel('Electrical Power(kW)')
-axs[1].grid(True)
-axs[1].legend()
+    axs[1].plot(x, y2, color='blue', label=legend_2)
+    axs[1].set_ylabel(y2_label)
+    axs[1].grid(True)
+    axs[1].legend()
 
-# Plot Heat Pump operation (x_vars_values)
-axs[2].plot(time_axis, SOC_values, color='green', label='SoC Battery')
-axs[2].set_xlabel('Time')
-axs[2].set_ylabel('SoC Battery(kWh)')
-axs[2].grid(True)
-axs[2].legend()
+    axs[2].plot(x, y3, color='green', label=legend_3)
+    axs[2].set_xlabel('Time')
+    axs[2].set_ylabel(y3_label)
+    axs[2].grid(True)
+    axs[2].legend()
 
-# Add a title
-plt.suptitle('Price, Electrical Power from CHP, SoC of Battery for 10 Days ')
+    # Add a title
+    plt.suptitle(title)
 
-# Adjust layout
-plt.tight_layout()
-plt.show()
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, sigma_t_values, Baseload_Values, 
+     "Price(EUR/MWh)", "CHP Operation", "Baseload(kW)", 
+     "Price", "CHP Operation", "Baseload", 
+     "Optimal operation of CHP along with Price and Baseload")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Q_demand_values, P_thermal_values, Q_discharge_values, 
+     "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
+     "Thermal demand", "Thermal Power", "Discharge rate of TES", 
+     "Thermal Power generated, heat demand and discharge of TES")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Baseload_Values, P_available_values, dischargePower_values, 
+     "Baseload(kW)", "Electrical Power(kW)", "Discharge rate(kW)", 
+     "Baseload", "Electrical Power", "Discharge rate of BESS", 
+     "Electrical Power generated, baseload and discharge of BESS")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, P_available_values, SOC_values, 
+     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(kWh)", 
+     "Price", "Electrical Power", "SoC Battety", 
+     "Electrical Power generated, SoC and Price")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, sigma_t_values, dischargePower_values, 
+     "Price(EUR/MWh)", "CHP operation", "Discharge rate of battery(kW)", 
+     "Price", "CHP operation", "Battery Discharge", 
+     "Price, CHP operation and BESS discharge rate")
