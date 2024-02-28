@@ -449,13 +449,15 @@ chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargin
 chargingPower_values = [m.getVarByName(varname.VarName).x for varname in chargingPower.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
 SOC_percentage = [(soc / max_SOC_bess) * 100 for soc in SOC_values]
-
+Price = [P[t] for t in set_T]
+Baseload_Values = [baseload_Model[t] for t in set_T]
 
 Q_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_discharge.values()]
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
+Q_demand_values = [Q_demand[t] for t in set_T]
 # Plotting E_t and sigma_t on the same graph with different y-axes
 
 # Create time axis for plotting
@@ -488,4 +490,32 @@ def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend
     plt.tight_layout()
     plt.show()
 
-plot()
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, sigma_t_values, Baseload_Values, 
+     "Price(EUR/MWh)", "CHP Operation", "Baseload(kW)", 
+     "Price", "CHP Operation", "Baseload", 
+     "Optimal operation of CHP along with Price and Baseload")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Q_charge_values, P_thermal_values, Q_discharge_values, 
+     "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
+     "Thermal demand", "Thermal Power", "Discharge rate of TES", 
+     "Thermal Power generated, heat demand and discharge of TES")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Baseload_Values, P_available_values, dischargePower_values, 
+     "Baseload(kW)", "Electrical Power(kW)", "Discharge rate(kW)", 
+     "Baseload", "Electrical Power", "Discharge rate of BESS", 
+     "Electrical Power generated, baseload and discharge of BESS")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, P_available_values, SOC_values, 
+     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(kWh)", 
+     "Price", "Electrical Power", "SoC Battety", 
+     "Electrical Power generated, SoC and Price")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(time_axis, Price, sigma_t_values, dischargePower_values, 
+     "Price(EUR/MWh)", "CHP operation", "Discharge rate of battery(kW)", 
+     "Price", "CHP operation", "Battery Discharge", 
+     "Price, CHP operation and BESS discharge rate")
