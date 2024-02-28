@@ -127,7 +127,7 @@ pv = Photovoltaic(
 
 #Define optimisation parameter---Naveen
 time_step_size = 15 #10*60  # Time step in minute  
-num_hours = 10*24  # Total time in hrs 
+num_hours = 9*24  # Total time in hrs 
 num_time_step=int(num_hours*60//time_step_size) 
 T=num_time_step
 set_T = range(0,T)
