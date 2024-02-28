@@ -127,7 +127,7 @@ pv = Photovoltaic(
 
 #Define optimisation parameter---Naveen
 time_step_size = 15 #10*60  # Time step in minute  
-num_hours = 10*24  # Total time in hrs 
+num_hours = 9*24  # Total time in hrs 
 num_time_step=int(num_hours*60//time_step_size) 
 T=num_time_step
 set_T = range(0,T)
@@ -462,30 +462,30 @@ E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 time_axis = range(len(P))
 
 # Create subplots
-fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-# Plot CHP operation (sigma_values)
-axs[0].plot(time_axis, SOC_values, color='red', label='SoC Battery')
-axs[0].set_ylabel('SoC battery(kWh)')
-axs[0].grid(True)
-axs[0].legend()
+    axs[0].plot(x, y1, color='red', label=legend_1)
+    axs[0].set_ylabel(y1_label)
+    axs[0].grid(True)
+    axs[0].legend()
 
-# Plot Thermal Demand (Q_demand)
-axs[1].plot(time_axis, chargingState_values, color='blue', label='Charging state of Battery')
-axs[1].set_ylabel('Charging state')
-axs[1].grid(True)
-axs[1].legend()
+    axs[1].plot(x, y2, color='blue', label=legend_2)
+    axs[1].set_ylabel(y2_label)
+    axs[1].grid(True)
+    axs[1].legend()
 
-# Plot Heat Pump operation (x_vars_values)
-axs[2].plot(time_axis, dischargestate_values, color='green', label='Discharging state of Battery')
-axs[2].set_xlabel('Time')
-axs[2].set_ylabel('Discharging state')
-axs[2].grid(True)
-axs[2].legend()
+    axs[2].plot(x, y3, color='green', label=legend_3)
+    axs[2].set_xlabel('Time')
+    axs[2].set_ylabel(y3_label)
+    axs[2].grid(True)
+    axs[2].legend()
 
-# Add a title
-plt.suptitle('Battery SoC, Battery charge and discharge state for 10 Days ')
+    # Add a title
+    plt.suptitle(title)
 
-# Adjust layout
-plt.tight_layout()
-plt.show()
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+
+plot()
