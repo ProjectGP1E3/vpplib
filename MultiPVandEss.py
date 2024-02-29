@@ -21,13 +21,13 @@ class PvBessOptimization():
     def intialize_pvbess_parameters(self):
 
         # Battery Variables Initialization
-        self.maxChargingPower=0.1
-        self.maxDischargingPower=0.09
+        self.maxChargingPower=1
+        self.maxDischargingPower=0.9
         self.dischargingEfficiency=0.9
         self.chargingEfficiency=0.9
         self.minimumSoC=5
-        self.maximumSoC=40
-        self.startSoC=10
+        self.maximumSoC=90
+        self.startSoC=45
         self.max_power = 40 # kW
         self.capacity = 40  # kWh
         self.max_c = 1
@@ -35,7 +35,7 @@ class PvBessOptimization():
         # Values for environment
         self.start = "2015-05-01 12:00:00"
         self.end = "2015-05-10 23:45:00"
-        self.number_of_days=1
+        self.number_of_days=10
         self.year = "2015"
         self.time_freq = "15 min"
         self.timebase = 15
@@ -153,7 +153,7 @@ class PvBessOptimization():
         m.setParam('TimeLimit',5*60)
 
 
-        prices_use=self.prices.iloc[40:num_hours+40, 0].values
+        prices_use=self.prices.iloc[40:T+40, 0].values
         
 
         priceModel = {t: prices_use[(t *time_step_size)//60] for t in set_T}
@@ -186,7 +186,7 @@ class PvBessOptimization():
         constraints_eq6=   {t: m.addConstr(lhs=SoC[t] ,sense = GRB.EQUAL,rhs= SoC[t-1]+self.chargingEfficiency*timestep*chargingPower[t]-timestep*(1/self.dischargingEfficiency)*dischargingPower[t],name='charge_constraint_{}'.format(t)) for t in range(1,T-1)} # type: ignore
         constraints_eq6[0]=    m.addConstr(lhs=SoC[0] ,sense = GRB.EQUAL,rhs= self.startSoC,name='charge_constraint_{}'.format(0)) # type: ignore
 
-        objective = gp.quicksum(-1 * chargingPower[t] * timestep * self.prices.iloc[t, 0] + (dischargingPower[t] - dischargingState[t] *loadModel[t])* timestep * self.prices.iloc[t, 0] + (pvPowerModel[t] )* timestep * self.prices.iloc[t, 0]for t in set_T) # type: ignore
+        objective = gp.quicksum(-1 * chargingPower[t] * timestep * self.prices.iloc[t, 0] + (dischargingPower[t] - systemLoadModel[t])* timestep * self.prices.iloc[t, 0] + (pvPowerModel[t] )* timestep * self.prices.iloc[t, 0]for t in set_T) # type: ignore
 
         m.ModelSense = GRB.MAXIMIZE
         m.setObjective(objective)
@@ -200,94 +200,103 @@ class PvBessOptimization():
         SoC_values = [SoC[t].X for t in range(1, T-1)]  # Starting from 1 because we don't have charge[0]
         SoC_values.insert(0,self.startSoC)
         time_steps = list(set_T)
-
-        plt.figure(figsize=(12, 6))
-
-        # Plotting Charging Power
-        plt.subplot(3, 1, 1)
-        plt.plot(time_steps,charging_power_values, label='charging Power',drawstyle='steps')
-        plt.ylabel('Power (kW)')
-        plt.title('charging Power over Time')
-        plt.legend()
-
-        # Plotting Discharging Power
-        plt.subplot(3, 1, 2)
-        plt.plot(time_steps, discharging_power_values, label='Discharging Power',drawstyle='steps')
-        plt.ylabel('Power (kW)')
-        plt.title('Discharging Power over Time')
-        plt.legend()
-
-        # Plotting Charge Percentage
-        plt.subplot(3, 1, 3)
-        plt.plot(time_steps, SoC_values, label='Charge ')
-        plt.xlabel('Time Step')
-        plt.ylabel('Charge ')
-        plt.title('Battery Charge over Time')
-        plt.legend()
-
-        plt.tight_layout()
-
-        #print(pvPowerModel)
-        #print(systemLoad_values)
-        plt.show()
-        # ESS.residual_load=house_loadshape.residual_load
-        # ESS.prepare_time_series()
-        # print("prepare_time_series:")
-        # print(ESS.timeseries.head())
-        # ESS.timeseries.plot(figsize=(16, 9))
-        # plt.show()
+        prices_use=self.prices.iloc[40:num_hours+40, 0].values
 
 
-        #residuals and discharging
-        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))  # Create 3 subplots
+      
+        #load and system
+        fig, ax = plt.subplots()
 
-        # Plotting residuals on the first subplot
-        ax1.plot(list(loadModel.keys()), list(loadModel.values()), label='residuals', color='b')
-        ax1.set_ylabel('Residuals', color='b')
-        ax1.tick_params(axis='y', labelcolor='b')
-        ax1.grid(True)  # Add grid
-        ax1.legend(loc='upper left')
+        # Plotting residuals
+        ax.plot(list(loadModel.keys()), list(loadModel.values()), label='Residuals (kW)', color='b')
 
-        # Plotting SOC on the second subplot
-        ax2.plot(SoC_values, label='SOC', color='g')
-        ax2.set_ylabel('SOC', color='g')
-        ax2.tick_params(axis='y', labelcolor='g')
-        ax2.grid(True)  # Add grid
-        ax2.legend(loc='upper left')
+        # Plotting system on the same subplot with a dashed line
+        ax.plot(systemLoad_values, label='System load (kW)', color='r', linestyle='--')
 
-        # Plotting price on the third subplot
-        ax3.plot(prices_use, label='Price', color='r')
-        ax3.set_ylabel('Price', color='r')
-        ax3.tick_params(axis='y', labelcolor='r')
-        ax3.grid(True)  # Add grid
-        ax3.legend(loc='upper left')
+        # Setting a general y-label
+        ax.set_ylabel('kW')
+        ax.set_xlabel('Timestamps')
+        ax.set_title('System and Residual load')
+
+        # Adjusting tick parameters
+        ax.tick_params(axis='y')
+
+        # Add grid and legend
+        ax.grid(True)
+        ax.legend(loc='upper left')
 
         # Display the plot
-        plt.tight_layout()  # Adjust layout
+        plt.tight_layout()
+        plt.show()
+        
+
+
+        #load, soc, pv
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
+
+        # Plotting PV power model on the first subplot
+        ax1.plot(list(loadModel.keys()), list(loadModel.values()), label='Residuals', color='b')
+        ax1.set_ylabel('Residuals (kW)', color='b')
+        ax1.tick_params(axis='y', labelcolor='b')
+        ax1.legend(loc='upper left')
+        #ax1.set_title('PV Power Model')
+        ax1.grid(True)  
+
+        # Plotting SOC on the second subplot
+        ax2.plot(SoC_values, label='SoC', color='g')
+        ax2.set_ylabel('SoC (%)', color='g')
+        ax2.tick_params(axis='y', labelcolor='g')
+        ax2.legend(loc='upper left')
+        #ax2.set_title('State of Charge')
+        ax2.grid(True)  
+
+        # Plotting Price on the third subplot
+        ax3.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='r')
+        ax3.set_ylabel('PV (kWh)', color='r')
+        #ax3.set_xlabel('Timestamps')
+        ax3.tick_params(axis='y', labelcolor='r')
+        ax3.legend(loc='upper left')
+        #ax3.set_title('Price')
+        ax3.grid(True)
+
+        # Optionally, set a common x-axis label
+        fig.text(0.5, 0.04, 'Time', ha='center')
+
+        plt.suptitle('Battery behaviour w.r.t Residual load and PV')
+
+        # Adjust layout for better spacing
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        # Display the plot
         plt.show()
 
-        #Plots on same axis charging, discharging, SOC
+
+
+
+
+
+        #charging, discharging, SOC
         fig, ax1 = plt.subplots(figsize=(12, 6))
 
         discharging_power_values = [-value for value in discharging_power_values]
 
         # Plotting Charging Power as positive bars
-        ax1.bar(time_steps, charging_power_values, width=0.4, label='Charging Power', color='blue')
+        ax1.bar(time_steps, charging_power_values, width=2, label='Charging Power (kW)', color='blue')
 
         # Plotting Discharging Power as negative bars
-        ax1.bar(time_steps, discharging_power_values, width=0.4, label='Discharging Power', color='orange')
+        ax1.bar(time_steps, discharging_power_values, width=2, label='Discharging Power (kW)', color='orange')
 
         # Creating a secondary y-axis for the SOC
         ax2 = ax1.twinx()
 
         # Plotting the SOC on the secondary y-axis
-        ax2.plot(time_steps, SoC_values, label='SOC', color='black', linestyle='-')
+        ax2.plot(time_steps, SoC_values, label='SoC (%)', color='black', linestyle='-')
 
         # Adding labels, title, and grid
-        ax1.set_xlabel('Time Step')
+        ax1.set_xlabel('Timestamps')
         ax1.set_ylabel('Power (kW)', color='blue')
-        ax2.set_ylabel('SOC', color='black')
-        plt.title('Charging/Discharging Power and SOC over Time')
+        ax2.set_ylabel('SoC (%)', color='black')
+        plt.title('Charging/Discharging Power and SoC over Time')
         ax1.grid(True)
 
         # Adding legends
@@ -300,41 +309,91 @@ class PvBessOptimization():
 
         plt.show()
 
-        #pv and charging
+
+
+
+        #pv,soc, prices
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
 
         # Plotting PV power model on the first subplot
         ax1.plot(list(pvPowerModel.keys()), list(pvPowerModel.values()), label='PV', color='b')
-        ax1.set_ylabel('PV', color='b')
+        ax1.set_ylabel('PV (kWh)', color='b')
         ax1.tick_params(axis='y', labelcolor='b')
         ax1.legend(loc='upper left')
-        ax1.set_title('PV Power Model')
+        #ax1.set_title('PV Power Model')
         ax1.grid(True)  # Enable grid
 
         # Plotting SOC on the second subplot
-        ax2.plot(SoC_values, label='SOC', color='g')
-        ax2.set_ylabel('SOC', color='g')
+        ax2.plot(SoC_values, label='SoC', color='g')
+        ax2.set_ylabel('SoC (%)', color='g')
         ax2.tick_params(axis='y', labelcolor='g')
         ax2.legend(loc='upper left')
-        ax2.set_title('State of Charge')
-        ax2.grid(True)  # Enable grid
+        #ax2.set_title('State of Charge')
+        ax2.grid(True)  
 
         # Plotting Price on the third subplot
         ax3.plot(prices_use, label='Price', color='r')
-        ax3.set_ylabel('Price', color='r')
+        ax3.set_ylabel('Price (€)', color='r')
+        #ax3.set_xlabel('Timestamps')
         ax3.tick_params(axis='y', labelcolor='r')
         ax3.legend(loc='upper left')
-        ax3.set_title('Price')
-        ax3.grid(True)  # Enable grid
+        #ax3.set_title('Price')
+        ax3.grid(True) 
 
         # Optionally, set a common x-axis label
         fig.text(0.5, 0.04, 'Time', ha='center')
+        plt.suptitle('Battery behaviour w.r.t PV and Prices')
+
 
         # Adjust layout for better spacing
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         # Display the plot
         plt.show()
+
+
+
+        #load,soc,prices
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
+
+        # Plotting PV power model on the first subplot
+        ax1.plot(list(loadModel.keys()), list(loadModel.values()), label='Residual load', color='b')
+        ax1.set_ylabel('Residual load (kW)', color='b')
+        ax1.tick_params(axis='y', labelcolor='b')
+        ax1.legend(loc='upper left')
+        #ax1.set_title('PV Power Model')
+        ax1.grid(True)  # Enable grid
+
+        # Plotting SOC on the second subplot
+        ax2.plot(SoC_values, label='SoC', color='g')
+        ax2.set_ylabel('SoC (%)', color='g')
+        ax2.tick_params(axis='y', labelcolor='g')
+        ax2.legend(loc='upper left')
+        #ax2.set_title('State of Charge')
+        ax2.grid(True)  
+
+        # Plotting Price on the third subplot
+        ax3.plot(prices_use, label='Price', color='r')
+        ax3.set_ylabel('Price (€)', color='r')
+        #ax3.set_xlabel('Timestamps')
+        ax3.tick_params(axis='y', labelcolor='r')
+        ax3.legend(loc='upper left')
+        #ax3.set_title('Price')
+        ax3.grid(True)
+
+        # Optionally, set a common x-axis label
+        fig.text(0.5, 0.04, 'Time', ha='center')
+        plt.suptitle('Battery behaviour w.r.t Residual load and Prices')
+
+
+        # Adjust layout for better spacing
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        # Display the plot
+        plt.show()
+
+
+
 if __name__ == "__main__":
     optimization = PvBessOptimization()
     optimization.pvbess_model()
