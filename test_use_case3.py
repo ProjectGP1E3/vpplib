@@ -127,7 +127,7 @@ pv = Photovoltaic(
 
 #Define optimisation parameter---Naveen
 time_step_size = 15 #10*60  # Time step in minute  
-num_hours = 9*24  # Total time in hrs 
+num_hours = 11*24  # Total time in hrs 
 num_time_step=int(num_hours*60//time_step_size) 
 T=num_time_step
 set_T = range(0,T)
@@ -375,7 +375,7 @@ constraints_energyDemand={t: m.addConstr(
 
 #Constraint SoC of BESS 
 constraints_SOC={t: m.addConstr(
-    lhs = SOC[t] + charge_efficiency*delta_t*chargingPower[t]-dischargingPower[t]*discharge_efficiency*delta_t,
+    lhs = SOC[t] + charge_efficiency*(delta_t/60)*chargingPower[t]-dischargingPower[t]*discharge_efficiency*(delta_t/60),
     sense = GRB.LESS_EQUAL,
     rhs= max_SOC_bess,
     name='Max_SOC_Constraint{}'.format(t)) for t in range(1,T)} 
