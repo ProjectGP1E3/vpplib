@@ -28,6 +28,7 @@ k=1.2 # calculated according Steck PHD thesis see (Steck 2012 page 34)
 f_1=0.96 # calculated according Steck PHD thesis see (Steck 2012 page 35) 
 f_2=0.24 # calculated according Steck PHD thesis see (Steck 2012 page 35)
 
+
 # Parameters for PV  
 
 unit = "kW"
@@ -54,7 +55,7 @@ max_ChargingPower=0.4
 max_DischargingPower=0.3
 max_SOC_bess=4 #Maximum State of Charge
 min_SOC_bess=0.3 #Minimum State of Charge
-
+start_SOC = 1.8 # SOC of battery at start
 
 #Parameter for Thermal storage unit (Heat tank)
 max_temperature = 60  # °C
@@ -387,6 +388,12 @@ constraints_SOC_Constraint = {t: m.addConstr(
     name='charge_constraint_{}'.format(t)) 
     for t in range(0,T-1)}
 
+constraints_SOC_Constraint[0] = m.addConstr(
+    lhs=SOC[0] ,
+    sense = GRB.EQUAL,
+    rhs= start_SOC,
+    name='charge_constraint_{}'.format(0)) 
+
 constraints_BESS_State = {t: m.addConstr(
     lhs = chargingState[t]+dischargingState[t],
     sense = GRB.LESS_EQUAL,
@@ -414,12 +421,7 @@ constraints_discharging_power3 = {t: m.addConstr(
     for t in set_T}
 
 
-# starting Soc 
-constraints_SOC[0]={m.addConstr(
-    lhs = SOC[0],
-    sense = GRB.EQUAL,
-    rhs= min_SOC_bess,
-    name='min_Soc_constraint_{}'.format(0))} 
+
 
 # Defined objective function ---Desmond
 
@@ -448,6 +450,7 @@ sigma_t_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.value
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
 chargingPower_values = [m.getVarByName(varname.VarName).x for varname in chargingPower.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
+#SOC_values.insert(0, start_SOC)
 SOC_percentage = [(soc / max_SOC_bess) * 100 for soc in SOC_values]
 Price = [P[t] for t in set_T]
 Baseload_Values = [baseload_Model[t] for t in set_T]
