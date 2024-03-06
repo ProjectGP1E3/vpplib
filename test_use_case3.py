@@ -65,6 +65,7 @@ cp = 4.2  #specific heat capacity of storage in kJ/kg/K
 thermal_energy_loss_per_day = 0.13
 min_discharge_rate=0
 max_discharge_rate=3
+E_t_start = 315
 
 
 #Parameter for Environment
@@ -294,6 +295,14 @@ constraints_state_of_charge = {t: m.addConstr(
     name='State_of_charge_{}'.format(t)
 ) for t in range(0,T-1)}
 
+"""
+# starting SOC TES 
+constraints_state_of_charge[0] = m.addConstr(
+    lhs =E_t[1],
+    sense = GRB.EQUAL,
+    rhs=E_t_start+(time_step_size/60)*(Q_dot_charge[0] - Q_dot_discharge[0]),
+    name='State_of_charge_{}'.format(0)
+) """
 
 constraints_storage_temperature = {t: m.addConstr(
     lhs =T_sto[t],
@@ -308,7 +317,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
     sense = GRB.LESS_EQUAL,
     rhs=E_t[t],
     name='max_constraint1_{}'.format(t)
-    ) for t in range(0,T)}
+    ) for t in range(1,T)}
 
  #>= contraints
 
@@ -317,7 +326,9 @@ constraints_max_state_of_charge= {t: m.addConstr(
     sense = GRB.GREATER_EQUAL,
     rhs=E_t[t],
     name='min_constraint2_{}'.format(t)
-     ) for t in range(0,T)}
+     ) for t in range(1,T)}
+
+
 
 # <= contraints
 constraints_min_charge_rate = {t: m.addConstr(
@@ -457,6 +468,7 @@ Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_di
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
+#E_t_values.insert(0, E_t_start)
 Q_demand_values = [Q_demand[t] for t in set_T]
 
 
