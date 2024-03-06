@@ -28,6 +28,7 @@ k=1.2 # calculated according Steck PHD thesis see (Steck 2012 page 34)
 f_1=0.96 # calculated according Steck PHD thesis see (Steck 2012 page 35) 
 f_2=0.24 # calculated according Steck PHD thesis see (Steck 2012 page 35)
 
+
 # Parameters for PV  
 
 unit = "kW"
@@ -54,7 +55,7 @@ max_ChargingPower=0.4
 max_DischargingPower=0.3
 max_SOC_bess=4 #Maximum State of Charge
 min_SOC_bess=0.3 #Minimum State of Charge
-
+start_SOC = 1.8 # SOC of battery at start
 
 #Parameter for Thermal storage unit (Heat tank)
 max_temperature = 60  # °C
@@ -65,7 +66,6 @@ cp = 4.2  #specific heat capacity of storage in kJ/kg/K
 thermal_energy_loss_per_day = 0.13
 min_discharge_rate=0
 max_discharge_rate=3
-E_t_start = 315
 
 
 #Parameter for Environment
@@ -295,14 +295,6 @@ constraints_state_of_charge = {t: m.addConstr(
     name='State_of_charge_{}'.format(t)
 ) for t in range(0,T-1)}
 
-"""
-# starting SOC TES 
-constraints_state_of_charge[0] = m.addConstr(
-    lhs =E_t[1],
-    sense = GRB.EQUAL,
-    rhs=E_t_start+(time_step_size/60)*(Q_dot_charge[0] - Q_dot_discharge[0]),
-    name='State_of_charge_{}'.format(0)
-) """
 
 constraints_storage_temperature = {t: m.addConstr(
     lhs =T_sto[t],
@@ -317,7 +309,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
     sense = GRB.LESS_EQUAL,
     rhs=E_t[t],
     name='max_constraint1_{}'.format(t)
-    ) for t in range(1,T)}
+    ) for t in range(0,T)}
 
  #>= contraints
 
@@ -326,9 +318,7 @@ constraints_max_state_of_charge= {t: m.addConstr(
     sense = GRB.GREATER_EQUAL,
     rhs=E_t[t],
     name='min_constraint2_{}'.format(t)
-     ) for t in range(1,T)}
-
-
+     ) for t in range(0,T)}
 
 # <= contraints
 constraints_min_charge_rate = {t: m.addConstr(
@@ -398,6 +388,12 @@ constraints_SOC_Constraint = {t: m.addConstr(
     name='charge_constraint_{}'.format(t)) 
     for t in range(0,T-1)}
 
+constraints_SOC_Constraint[0] = m.addConstr(
+    lhs=SOC[0] ,
+    sense = GRB.EQUAL,
+    rhs= start_SOC,
+    name='charge_constraint_{}'.format(0)) 
+
 constraints_BESS_State = {t: m.addConstr(
     lhs = chargingState[t]+dischargingState[t],
     sense = GRB.LESS_EQUAL,
@@ -425,12 +421,7 @@ constraints_discharging_power3 = {t: m.addConstr(
     for t in set_T}
 
 
-# starting Soc 
-constraints_SOC[0]={m.addConstr(
-    lhs = SOC[0],
-    sense = GRB.EQUAL,
-    rhs= min_SOC_bess,
-    name='min_Soc_constraint_{}'.format(0))} 
+
 
 # Defined objective function ---Desmond
 
@@ -459,6 +450,7 @@ sigma_t_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.value
 chargingState_values = [m.getVarByName(varname.VarName).x for varname in chargingState.values()]
 chargingPower_values = [m.getVarByName(varname.VarName).x for varname in chargingPower.values()]
 SOC_values = [m.getVarByName(varname.VarName).x for varname in SOC.values()]
+#SOC_values.insert(0, start_SOC)
 SOC_percentage = [(soc / max_SOC_bess) * 100 for soc in SOC_values]
 Price = [P[t] for t in set_T]
 Baseload_Values = [baseload_Model[t] for t in set_T]
@@ -468,13 +460,7 @@ Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_di
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
-#E_t_values.insert(0, E_t_start)
 Q_demand_values = [Q_demand[t] for t in set_T]
-
-
-"""print(f"Maximum Thermal demand value is {max(Q_demand_values)}")
-print(f"Maximum Thermal generation from CHP is {max(P_thermal_values)}")
-print(f"Maximum discharge from the TES is {max(Q_discharge_values)}")"""
 
 # Create time axis for plotting
 time_axis = range(len(P))
@@ -513,10 +499,10 @@ plot(time_axis, Price, sigma_t_values, Baseload_Values,
      "Optimal operation of CHP along with Price and Baseload")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Q_demand_values, P_thermal_values, E_t_values, 
-     "Thermal demand(kW)", "Thermal Power(kW)", "SOC TES", 
-     "Thermal demand", "Thermal Power", "SOC of TES", 
-     "Thermal Power generated, heat demand and SOC of TES")
+plot(time_axis, Q_demand_values, P_thermal_values, Q_discharge_values, 
+     "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
+     "Thermal demand", "Thermal Power", "Discharge rate of TES", 
+     "Thermal Power generated, heat demand and discharge of TES")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
 plot(time_axis, Baseload_Values, P_available_values, dischargePower_values, 
