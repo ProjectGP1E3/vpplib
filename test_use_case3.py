@@ -71,8 +71,8 @@ max_discharge_rate=3
 #Parameter for Environment
 
 
-start = "2015-01-01 12:00:00"
-end = "2015-01-14 23:45:00"
+start = "2015-01-01 00:00:00"
+end = "2015-01-11 23:45:00"
 year = "2015"
 time_freq = "15 min"
 timebase = 15
