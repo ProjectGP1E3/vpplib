@@ -127,7 +127,7 @@ pv = Photovoltaic(
 
 #Define optimisation parameter---Naveen
 time_step_size = 15 #10*60  # Time step in minute  
-num_hours = 9*24  # Total time in hrs 
+num_hours = 11*24  # Total time in hrs 
 num_time_step=int(num_hours*60//time_step_size) 
 T=num_time_step
 set_T = range(0,T)
@@ -189,7 +189,7 @@ SOC={t:m.addVar(vtype=GRB.CONTINUOUS,lb=min_SOC_bess,ub=max_SOC_bess ,name="char
 
 sigma_startup= {t:m.addVar(vtype=GRB.BINARY, name="sigma_startup_{}".format(t)) for t in set_T} #  Start-up process in t
 
-sigma_shortdown= {t:m.addVar(vtype=GRB.BINARY, name="sigma_shortdown_{}".format(t)) for t in set_T} #  Start-up process in t
+sigma_shortdown= {t:m.addVar(vtype=GRB.BINARY, name="sigma_shortdown_{}".format(t)) for t in set_T} #  Shut down process in t
 
 Q_dot_charge={t:m.addVar(vtype=GRB.CONTINUOUS, name="Q_dot_charge_{}".format(t)) for t in set_T}# charging rate [KW]
 
@@ -375,7 +375,7 @@ constraints_energyDemand={t: m.addConstr(
 
 #Constraint SoC of BESS 
 constraints_SOC={t: m.addConstr(
-    lhs = SOC[t] + charge_efficiency*delta_t*chargingPower[t]-dischargingPower[t]*discharge_efficiency*delta_t,
+    lhs = SOC[t] + charge_efficiency*(delta_t/60)*chargingPower[t]-dischargingPower[t]*discharge_efficiency*(delta_t/60),
     sense = GRB.LESS_EQUAL,
     rhs= max_SOC_bess,
     name='Max_SOC_Constraint{}'.format(t)) for t in range(1,T)} 
@@ -428,8 +428,8 @@ constraints_SOC[0]={m.addConstr(
 #objective=gp.quicksum(-P_available[t]* P[t]-chargingPower[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
 
 """
-This constraint is based on minimizing the cost of operating the CHP and BESS with respect to the market price 
-"""
+This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
+open for discussion """
 
 objective = gp.quicksum(-dischargingPower[t]*P[t]*1000 + sigma_startup[t] * C_startup + P_fuel[t] * C_fuel + sigma_shortdown[t] * C_shortdown +nu[t]*comfort_fact for t in set_T)
 
@@ -458,7 +458,11 @@ dischargePower_values = [m.getVarByName(varname.VarName).x for varname in discha
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
 Q_demand_values = [Q_demand[t] for t in set_T]
-# Plotting E_t and sigma_t on the same graph with different y-axes
+
+
+"""print(f"Maximum Thermal demand value is {max(Q_demand_values)}")
+print(f"Maximum Thermal generation from CHP is {max(P_thermal_values)}")
+print(f"Maximum discharge from the TES is {max(Q_discharge_values)}")"""
 
 # Create time axis for plotting
 time_axis = range(len(P))
@@ -497,10 +501,10 @@ plot(time_axis, Price, sigma_t_values, Baseload_Values,
      "Optimal operation of CHP along with Price and Baseload")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Q_demand_values, P_thermal_values, Q_discharge_values, 
-     "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
-     "Thermal demand", "Thermal Power", "Discharge rate of TES", 
-     "Thermal Power generated, heat demand and discharge of TES")
+plot(time_axis, Q_demand_values, P_thermal_values, E_t_values, 
+     "Thermal demand(kW)", "Thermal Power(kW)", "SOC TES", 
+     "Thermal demand", "Thermal Power", "SOC of TES", 
+     "Thermal Power generated, heat demand and SOC of TES")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
 plot(time_axis, Baseload_Values, P_available_values, dischargePower_values, 
@@ -509,8 +513,8 @@ plot(time_axis, Baseload_Values, P_available_values, dischargePower_values,
      "Electrical Power generated, baseload and discharge of BESS")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Price, P_available_values, SOC_values, 
-     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(kWh)", 
+plot(time_axis, Price, P_available_values, SOC_percentage, 
+     "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(%)", 
      "Price", "Electrical Power", "SoC Battety", 
      "Electrical Power generated, SoC and Price")
 
