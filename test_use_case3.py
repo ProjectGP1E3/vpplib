@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
+from plotDataGenerator import *
 import matplotlib.pyplot as plt
 from vpplib.environment import Environment
 from vpplib.user_profile import UserProfile
@@ -71,8 +72,8 @@ max_discharge_rate=3
 #Parameter for Environment
 
 
-start = "2015-01-01 12:00:00"
-end = "2015-01-14 23:45:00"
+start = "2015-01-01 00:00:00"
+end = "2015-01-11 23:45:00"
 year = "2015"
 time_freq = "15 min"
 timebase = 15
@@ -464,7 +465,7 @@ Q_demand_values = [Q_demand[t] for t in set_T]
 
 # Create time axis for plotting
 time_axis = range(len(P))
-
+date_series = plotDataGenerator(start, end, time_freq, time_freq)
 # Create subplots
 def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title):
     fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
@@ -493,31 +494,31 @@ def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend
     plt.show()
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Price, sigma_t_values, Baseload_Values, 
+plot(date_series, Price, sigma_t_values, Baseload_Values, 
      "Price(EUR/MWh)", "CHP Operation", "Baseload(kW)", 
      "Price", "CHP Operation", "Baseload", 
      "Optimal operation of CHP along with Price and Baseload")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Q_demand_values, P_thermal_values, Q_discharge_values, 
+plot(date_series, Q_demand_values, P_thermal_values, Q_discharge_values, 
      "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
      "Thermal demand", "Thermal Power", "Discharge rate of TES", 
      "Thermal Power generated, heat demand and discharge of TES")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Baseload_Values, P_available_values, dischargePower_values, 
+plot(date_series, Baseload_Values, P_available_values, dischargePower_values, 
      "Baseload(kW)", "Electrical Power(kW)", "Discharge rate(kW)", 
      "Baseload", "Electrical Power", "Discharge rate of BESS", 
      "Electrical Power generated, baseload and discharge of BESS")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Price, P_available_values, SOC_percentage, 
+plot(date_series, Price, P_available_values, SOC_percentage, 
      "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(%)", 
      "Price", "Electrical Power", "SoC Battety", 
      "Electrical Power generated, SoC and Price")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(time_axis, Price, sigma_t_values, dischargePower_values, 
+plot(date_series, Price, sigma_t_values, dischargePower_values, 
      "Price(EUR/MWh)", "CHP operation", "Discharge rate of battery(kW)", 
      "Price", "CHP operation", "Battery Discharge", 
      "Price, CHP operation and BESS discharge rate")
