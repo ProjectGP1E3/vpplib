@@ -473,18 +473,18 @@ def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend
     axs[0].plot(x, y1, color='red', label=legend_1)
     axs[0].set_ylabel(y1_label)
     axs[0].grid(True)
-    axs[0].legend()
+    axs[0].legend(loc = 'upper right')
 
     axs[1].plot(x, y2, color='blue', label=legend_2)
     axs[1].set_ylabel(y2_label)
     axs[1].grid(True)
-    axs[1].legend()
+    axs[1].legend(loc = 'upper right')
 
     axs[2].plot(x, y3, color='green', label=legend_3)
     axs[2].set_xlabel('Time')
     axs[2].set_ylabel(y3_label)
     axs[2].grid(True)
-    axs[2].legend()
+    axs[2].legend(loc = 'upper right')
 
     # Add a title
     plt.suptitle(title)
