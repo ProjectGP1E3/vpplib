@@ -29,6 +29,14 @@ mass_of_storage = 500  # kg
 cp = 4.2      #specific heat capacity of storage in kJ/kg/K
 k_sto= 1.12   #  thermal conductivity of storage material W/m^2K
 A_sto=3.39    #  Area of storage unit in m^2
+storage_efficiency=0.00057  #in   0.057%
+static_efficiency=0.00056   #in 0.056 %
+charge_efficiency=0.9    # in 90%
+discharge_efficiency= 0.9  # in 90%
+max_chare_rate= 0.25    # in 25%
+max_discharge_rate =0.25  # in 25%
+max_storage_cap=250 #KW
+
 thermal_energy_loss_per_day = 0.13
 efficiency_per_timestep = 1 - (
             thermal_energy_loss_per_day
@@ -135,6 +143,8 @@ Q_dot_discharge={t:m.addVar(vtype=GRB.CONTINUOUS, name="Q_dot_discharge_{}".form
 
 T_sto={t:m.addVar(vtype=GRB.CONTINUOUS, name="Current_Temperature_{}".format(t)) for t in set_T}# storage temperature of TES in °C
 
+Loss_Tes={t:m.addVar(vtype=GRB.CONTINUOUS, name="Loss_ThermalStorage_{}".format(t)) for t in set_T}# loss in TES in kJ
+
 #x_vars = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0, ub=1, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
 x_vars = {t:m.addVar(vtype=GRB.BINARY, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
 
@@ -228,12 +238,18 @@ constraints_thermal_balance1 = {t: m.addConstr(
 
 
 constraints_state_of_charge = {t: m.addConstr(
-    lhs =E_t[t+1],
+    lhs =E_t[t],
     sense = GRB.EQUAL,
-    rhs=E_t[t]+(time_step_size/60)*(Q_dot_charge[t] - Q_dot_discharge[t]-0.001*k_sto*A_sto*(T_sto[t]-20)),
+    rhs=E_t[t-1]+charge_efficiency*Q_dot_charge[t] - Q_dot_discharge[t]/discharge_efficiency -Loss_Tes[t],
     name='State_of_charge_{}'.format(t)
-) for t in range(0,T-1)}
+) for t in range(1,T)}
 
+constraints_Loss_Thermal = {t: m.addConstr(
+    lhs =Loss_Tes[t],
+    sense = GRB.EQUAL,
+    rhs=storage_efficiency*E_t[t-1] + 0.001*k_sto*A_sto*(min_temperature-T_a[t]),
+    name='current_temperature_{}'.format(t)
+) for t in range(1,T)}
 
 
 #Constraint Equations Heat pump
@@ -267,7 +283,7 @@ constraints_operation = {t: m.addConstr(
 constraints_storage_temperature = {t: m.addConstr(
     lhs =T_sto[t],
     sense = GRB.EQUAL,
-    rhs=T_sto[t-1]+(E_t[t]-E_t[t-1])/(mass_of_storage*cp),
+    rhs=T_sto[t-1]+ 3600*(E_t[t]-E_t[t-1])/(mass_of_storage*cp),
     name='current_temperature_{}'.format(t)
 ) for t in range(1,T)}
 
@@ -284,7 +300,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
  #>= contraints
 
 constraints_max_state_of_charge= {t: m.addConstr(
-    lhs =700,
+    lhs =250,
     sense = GRB.GREATER_EQUAL,
     rhs=E_t[t],
     name='min_constraint2_{}'.format(t)
@@ -298,6 +314,14 @@ constraints_min_charge_rate = {t: m.addConstr(
     name='max_constraint2_{}'.format(t)
     ) for t in range(0,T)}
 
+ #>= contraints
+
+constraints_max_charge_rate= {t: m.addConstr(
+    lhs =max_storage_cap*max_chare_rate,
+    sense = GRB.GREATER_EQUAL,
+    rhs=charge_efficiency*Q_dot_charge[t],
+    name='min_constraint4_{}'.format(t)
+     ) for t in range(0,T)}
 # <= contraints
 constraints_min_discharge_rate = {t: m.addConstr(
     lhs = 0,
@@ -305,6 +329,13 @@ constraints_min_discharge_rate = {t: m.addConstr(
     rhs=Q_dot_discharge[t],
     name='max_constraint3_{}'.format(t)
     ) for t in range(0,T)}
+
+constraints_max_discharge_rate= {t: m.addConstr(
+    lhs =discharge_efficiency*max_storage_cap*max_discharge_rate,
+    sense = GRB.GREATER_EQUAL,
+    rhs=Q_dot_discharge[t],
+    name='min_constraint5_{}'.format(t)
+     ) for t in range(0,T)}
 
  # <= contraints
 constraints_minTemperature = {t: m.addConstr(
@@ -326,7 +357,7 @@ constraints_maxTemperature= {t: m.addConstr(
 
 # Objective
 
-objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + 1000*nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
 
 m.setObjective(objective)
 
@@ -358,7 +389,7 @@ time_axis = range(len(P))
 fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
 # Plot State of Charge (Thermal Storage)
-axs[0].plot(time_axis, T_current_values, color='blue', label='Storage Temperature')
+axs[0].plot(time_axis, Q_dot_charge_values , color='blue', label='Storage Temperature')
 axs[0].set_ylabel('Temperature(°C)')
 axs[0].grid(True)
 axs[0].legend()
