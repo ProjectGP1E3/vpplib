@@ -435,6 +435,12 @@ constraints_state_of_charge[0] = m.addConstr(
     rhs= start_E_t,
     name='State_of_charge_{}'.format(0)) 
 
+constraints_storage_temperature [0] = m.addConstr(
+    lhs=T_sto[0] ,
+    sense = GRB.EQUAL,
+    rhs= min_temperature,
+    name='current_temperature_{}'.format(0)) 
+
 constraints_BESS_State = {t: m.addConstr(
     lhs = chargingState[t]+dischargingState[t],
     sense = GRB.LESS_EQUAL,
