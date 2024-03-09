@@ -5,6 +5,7 @@ from gurobipy import GRB
 import matplotlib.pyplot as plt
 from vpplib.environment import Environment
 from vpplib.user_profile import UserProfile
+from plotDataGenerator import *
 
 
 
@@ -63,8 +64,8 @@ def heat_pump_power(phi_e, tmp):
     return phi_e*cop
 
 #Parameter to be defined for Enviroment
-start = "2015-01-01 12:00:00"
-end = "2015-01-14 23:45:00"
+start = "2015-01-01 00:00:00"
+end = "2015-01-10 23:45:00"
 year = "2015"
 timebase = 15
 time_freq = "15 min"
@@ -371,7 +372,8 @@ m.optimize()
 x_vars_values = [m.getVarByName(varname.VarName).x for varname in x_vars.values()]
 sigma_values = [m.getVarByName(varname.VarName).x for varname in sigma_t.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
-
+Price = [P[t] for t in set_T]
+Q_demand_values = [Q_demand[t] for t in set_T]
 
 P_hp_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_hp_thermal.values()]
 P_thermal_values = [m.getVarByName(varname.VarName).x for varname in  P_thermal.values()]
@@ -384,32 +386,56 @@ T_current_values = [m.getVarByName(varname.VarName).x for varname in T_sto.value
 
 # Create time axis for plotting
 time_axis = range(len(P))
+date_series = plotDataGenerator(start, end, time_freq, time_freq)
 
 # Create subplots
-fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title):
+    fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
-# Plot State of Charge (Thermal Storage)
-axs[0].plot(time_axis, Q_dot_charge_values , color='blue', label='Storage Temperature')
-axs[0].set_ylabel('Temperature(°C)')
-axs[0].grid(True)
-axs[0].legend()
+    axs[0].plot(x, y1, color='red', label=legend_1)
+    axs[0].set_ylabel(y1_label)
+    axs[0].grid(True)
+    axs[0].legend()
 
-# Plot CHP operation (sigma_values)
-axs[1].plot(time_axis, sigma_values, color='red', label='CHP Operation (sigma)')
-axs[1].set_ylabel('CHP Operation')
-axs[1].grid(True)
-axs[1].legend()
+    axs[1].plot(x, y2, color='blue', label=legend_2)
+    axs[1].set_ylabel(y2_label)
+    axs[1].grid(True)
+    axs[1].legend()
 
-# Plot Heat Pump operation (x_vars_values)
-axs[2].plot(time_axis, x_vars_values, color='green', label='Heat Pump Operation (x_vars)')
-axs[2].set_xlabel('Time')
-axs[2].set_ylabel('Heat Pump Operation')
-axs[2].grid(True)
-axs[2].legend()
+    axs[2].plot(x, y3, color='green', label=legend_3)
+    #axs[2].plot(x, y4, color='brown', label=legend_4)
+    axs[2].set_xlabel('Time')
+    axs[2].set_ylabel(y3_label)
+    axs[2].grid(True)
+    axs[2].legend()
 
-# Add a title
-plt.suptitle('Optimal Operation of CHP and Heat Pump along with Charge rate of Thermal Storage  10 Days ')
+    # Add a title
+    plt.suptitle(title)
 
-# Adjust layout
-plt.tight_layout()
-plt.show()
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, Price, sigma_values, x_vars_values, 
+     "Price(EUR/MWh)", "CHP Operation", "Heat Pump Operation", 
+     "Price", "CHP Operation", "Heat Pump Operation", 
+     "Optimal operation of CHP and Heat Pump along with Electricity price")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, Q_dot_charge_values, sigma_values, x_vars_values, 
+     "Charge rate(kWh)", "CHP Operation", "Heat Pump Operation", 
+     "Charge rate of TES", "CHP Operation", "Heat Pump Operation", 
+     "Optimal operation of CHP and Heat Pump along with charge rate of TES")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, E_t_values, sigma_values, x_vars_values, 
+     "State of Charge", "CHP Operation", "Heat Pump Operation", 
+     "State of Charge of TES", "CHP operation", "Heat Pump Operation", 
+     "Optimal operation of CHP and Heat Pump along with SOC of Thermal storage")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+"""plot(date_series, Q_demand_values, P_thermal_values, P_hp_thermal_values, Q_dot_discharge_values, 
+     "Thermal demand", "Thermal Power CHP(kW)", "Thermal Power(kW)", 
+     "Thermal demand", "Thermal Power CHP", "Thermal Power Heat Pump", "TES Discharge rate", 
+     "Thermal Energy generated against Thermal demand for 10 days")"""
