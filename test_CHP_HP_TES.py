@@ -37,6 +37,7 @@ discharge_efficiency= 0.9  # in 90%
 max_chare_rate= 0.25    # in 25%
 max_discharge_rate =0.25  # in 25%
 max_storage_cap=250 #KW
+start_E_t=112.5
 
 thermal_energy_loss_per_day = 0.13
 efficiency_per_timestep = 1 - (
@@ -355,6 +356,13 @@ constraints_maxTemperature= {t: m.addConstr(
     rhs=T_sto[t],
     name='min_constraint_{}'.format(t)
      ) for t in range(0,T)}
+
+# = constraint
+constraints_state_of_charge[0] = m.addConstr(
+    lhs=E_t[0] ,
+    sense = GRB.EQUAL,
+    rhs= start_E_t,
+    name='State_of_charge_{}'.format(0)) 
 
 # Objective
 
