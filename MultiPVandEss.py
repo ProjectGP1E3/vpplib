@@ -224,7 +224,7 @@ class PvBessOptimization():
         # Setting a general y-label
         ax1.set_ylabel('kW')
         ax1.set_xlabel('Timestamps')
-        ax1.set_title('System and Residual load')
+        ax1.set_title('System and Residual Load')
 
         # Adjusting tick parameters
         ax1.tick_params(axis='y')
@@ -235,6 +235,7 @@ class PvBessOptimization():
         ax1.legend(loc='upper left')
         ax2.grid(True)
         ax2.legend(loc='upper left')
+        ax2.set_ylabel('kW')
 
         # Display the plot
         plt.tight_layout()
@@ -284,7 +285,7 @@ class PvBessOptimization():
         # Optionally, set a common x-axis label
         #fig.text(0.5, 0.04, 'Time', ha='center')
 
-        plt.suptitle('Battery behaviour w.r.t Residual load, PV and Electricity Prices')
+        plt.suptitle('SoC, Residual load, PV and Electricity Prices')
 
         # Adjust layout for better spacing
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -318,13 +319,13 @@ class PvBessOptimization():
         #ax1.set_xlabel('Timestamps')
         ax1.set_ylabel('Power (kW)', color='blue')
         ax2.set_ylabel('SoC (%)', color='black')
-        plt.suptitle('Charging/Discharging Power and SoC over Time')
+        plt.suptitle('Charging/Discharging Power and SoC')
         ax1.grid(True)
         ax2.grid(True)
 
         # Adding legends
         ax1.legend(loc='upper left')
-        ax2.legend(loc='upper right')
+        ax2.legend(loc='upper left')
 
         # Making the y-axis label color match the data
         ax1.tick_params(axis='y', labelcolor='blue')
@@ -365,7 +366,7 @@ class PvBessOptimization():
 
         # Optionally, set a common x-axis label
         #fig.text(0.5, 0.04, 'Time', ha='center')
-        plt.suptitle('Battery behaviour w.r.t PV and Prices')
+        plt.suptitle('SoC with PV and Prices')
 
 
         # Adjust layout for better spacing
@@ -406,7 +407,7 @@ class PvBessOptimization():
 
         # Optionally, set a common x-axis label
         #fig.text(0.5, 0.04, 'Time', ha='center')
-        plt.suptitle('Battery behaviour w.r.t Residual load and Prices')
+        plt.suptitle('SoC with Residual load and Prices')
 
 
         # Adjust layout for better spacing
