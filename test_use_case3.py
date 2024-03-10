@@ -65,11 +65,18 @@ Env_temperature= 21   # °C
 mass_of_storage = 500  # kg
 cp = 4.2  #specific heat capacity of storage in kJ/kg/K
 thermal_energy_loss_per_day = 0.13
-min_discharge_rate=0
-max_discharge_rate=3
-
-
+storage_efficiency=0.00057  #in   0.057%
+static_efficiency=0.00056   #in 0.056 %
+charge_efficiency=0.9    # in 90%
+discharge_efficiency= 0.9  # in 90%
+max_chare_rate= 0.25    # in 25%
+max_discharge_rate =0.25  # in 25%
+max_storage_cap=250 #KW
+k_sto= 1.12   #  thermal conductivity of storage material W/m^2K
+A_sto=3.39    #  Area of storage unit in m^2
 #Parameter for Environment
+Max_E_t=250   #kW
+start_E_t=112.5
 
 
 start = "2015-01-01 00:00:00"
@@ -149,6 +156,9 @@ baseload = pd.read_csv("./input/baseload/df_S_15min.csv")
 baseload.drop(columns=["Time"], inplace=True)
 
 #create variables  
+#temperature 
+mean_temp_hours = environment.get_mean_temp_hours()   #check the shape 
+mean_temp_hours_use = mean_temp_hours.iloc[0:num_hours, 0].values #check shape
 #Price
 
 prices = environment.get_price_data()  #check the shape to be sure 
@@ -164,6 +174,8 @@ prices_use=prices.iloc[0:num_hours,0].values     #check shape
 
 # Defining decision variables  Naveen/Aijaz
 Q_demand = {t: thermal_demand_use[(t *time_step_size)//60] for t in set_T}
+
+T_a = {t: mean_temp_hours_use[(t *time_step_size)//60] for t in set_T}  #ambient temperature
 
 P = {t: prices_use[(t *time_step_size)//60] for t in set_T}  #check len 960 for 10days
 
@@ -202,6 +214,8 @@ P_fuel={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_fuel_{}".format(t)) for t in se
 P_chp_l = {t:m.addVar(vtype=GRB.CONTINUOUS,name="P_chp_l{}".format(t)) for t in set_T} # Power from CHP to electric load
 
 nu = {t:m.addVar(vtype=GRB.CONTINUOUS, name="nu_{}".format(t)) for t in set_T} # thermal disutility in °C
+
+Loss_Tes={t:m.addVar(vtype=GRB.CONTINUOUS, name="Loss_ThermalStorage_{}".format(t)) for t in set_T}# loss in TES in kJ
 
 
 
@@ -290,17 +304,23 @@ constraints_thermal_balance1 = {t: m.addConstr(
 
 
 constraints_state_of_charge = {t: m.addConstr(
-    lhs =E_t[t+1],
+    lhs =E_t[t],
     sense = GRB.EQUAL,
-    rhs=E_t[t]+(time_step_size/60)*(Q_dot_charge[t] - Q_dot_discharge[t]),
+    rhs=E_t[t-1]+charge_efficiency*Q_dot_charge[t] - Q_dot_discharge[t]/discharge_efficiency -Loss_Tes[t],
     name='State_of_charge_{}'.format(t)
-) for t in range(0,T-1)}
+) for t in range(1,T)}
 
+constraints_Loss_Thermal = {t: m.addConstr(
+    lhs =Loss_Tes[t],
+    sense = GRB.EQUAL,
+    rhs=storage_efficiency*E_t[t-1] + 0.001*k_sto*A_sto*(min_temperature-T_a[t]),
+    name='current_temperature_{}'.format(t)
+) for t in range(1,T)}
 
 constraints_storage_temperature = {t: m.addConstr(
     lhs =T_sto[t],
     sense = GRB.EQUAL,
-    rhs=T_sto[t-1]+(E_t[t]-E_t[t-1])/(mass_of_storage*cp),
+    rhs=T_sto[t-1]+3600*(E_t[t]-E_t[t-1])/(mass_of_storage*cp),
     name='current_temperature_{}'.format(t)
 ) for t in range(1,T)}
 
@@ -315,7 +335,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
  #>= contraints
 
 constraints_max_state_of_charge= {t: m.addConstr(
-    lhs =700,
+    lhs =Max_E_t,
     sense = GRB.GREATER_EQUAL,
     rhs=E_t[t],
     name='min_constraint2_{}'.format(t)
@@ -328,6 +348,14 @@ constraints_min_charge_rate = {t: m.addConstr(
     rhs=Q_dot_charge[t],
     name='max_constraint2_{}'.format(t)
     ) for t in range(0,T)}
+ #>= contraints
+
+constraints_max_charge_rate= {t: m.addConstr(
+    lhs =max_storage_cap*max_chare_rate,
+    sense = GRB.GREATER_EQUAL,
+    rhs=charge_efficiency*Q_dot_charge[t],
+    name='min_constraint4_{}'.format(t)
+     ) for t in range(0,T)}
 
 # <= contraints
 constraints_min_discharge_rate = {t: m.addConstr(
@@ -337,6 +365,12 @@ constraints_min_discharge_rate = {t: m.addConstr(
     name='max_constraint3_{}'.format(t)
     ) for t in range(0,T)}
 
+constraints_max_discharge_rate= {t: m.addConstr(
+    lhs =discharge_efficiency*max_storage_cap*max_discharge_rate,
+    sense = GRB.GREATER_EQUAL,
+    rhs=Q_dot_discharge[t],
+    name='min_constraint5_{}'.format(t)
+     ) for t in range(0,T)}
 
  # <= contraints
 constraints_minTemperature = {t: m.addConstr(
@@ -394,6 +428,18 @@ constraints_SOC_Constraint[0] = m.addConstr(
     sense = GRB.EQUAL,
     rhs= start_SOC,
     name='charge_constraint_{}'.format(0)) 
+
+constraints_state_of_charge[0] = m.addConstr(
+    lhs=E_t[0] ,
+    sense = GRB.EQUAL,
+    rhs= start_E_t,
+    name='State_of_charge_{}'.format(0)) 
+
+constraints_storage_temperature [0] = m.addConstr(
+    lhs=T_sto[0] ,
+    sense = GRB.EQUAL,
+    rhs= min_temperature,
+    name='current_temperature_{}'.format(0)) 
 
 constraints_BESS_State = {t: m.addConstr(
     lhs = chargingState[t]+dischargingState[t],
@@ -461,6 +507,9 @@ Q_discharge_values = [m.getVarByName(varname.VarName).x for varname in  Q_dot_di
 dischargePower_values = [m.getVarByName(varname.VarName).x for varname in dischargingPower.values()]
 dischargestate_values = [m.getVarByName(varname.VarName).x for varname in dischargingState.values()]
 E_t_values = [m.getVarByName(varname.VarName).x for varname in E_t.values()]
+E_percentage = [(E_t / Max_E_t) * 100 for E_t in E_t_values]
+Thermal_loss=[m.getVarByName(varname.VarName).x for varname in Loss_Tes.values()]
+
 Q_demand_values = [Q_demand[t] for t in set_T]
 
 # Create time axis for plotting
@@ -473,18 +522,18 @@ def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend
     axs[0].plot(x, y1, color='red', label=legend_1)
     axs[0].set_ylabel(y1_label)
     axs[0].grid(True)
-    axs[0].legend()
+    axs[0].legend(loc = 'upper right')
 
     axs[1].plot(x, y2, color='blue', label=legend_2)
     axs[1].set_ylabel(y2_label)
     axs[1].grid(True)
-    axs[1].legend()
+    axs[1].legend(loc = 'upper right')
 
     axs[2].plot(x, y3, color='green', label=legend_3)
     axs[2].set_xlabel('Time')
     axs[2].set_ylabel(y3_label)
     axs[2].grid(True)
-    axs[2].legend()
+    axs[2].legend(loc = 'upper right')
 
     # Add a title
     plt.suptitle(title)
@@ -500,10 +549,17 @@ plot(date_series, Price, sigma_t_values, Baseload_Values,
      "Optimal operation of CHP along with Price and Baseload")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(date_series, Q_demand_values, P_thermal_values, Q_discharge_values, 
-     "Thermal demand(kW)", "Thermal Power(kW)", "Discharge rate(kW)", 
-     "Thermal demand", "Thermal Power", "Discharge rate of TES", 
-     "Thermal Power generated, heat demand and discharge of TES")
+plot(date_series, Q_demand_values, P_thermal_values,  E_percentage, 
+     "Thermal demand(kW)", "Thermal Power(kW)", "State of Charge TES(%)", 
+     "Thermal demand", "Thermal Power", "State of charge of Thermal Storage", 
+     "Thermal Power generated, heat demand and State of charge of Thermal Storage")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, sigma_t_values,  Q_charge_values, Thermal_loss, 
+     "CHP operation", "Charge rate(kW)", "Thermal loss TES(kW)", 
+     "CHP operation", "Charge rate", "Thermal loss", 
+     "CHP operation,Charge rate of Thermal Storage and Thermal loss")
+
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
 plot(date_series, Baseload_Values, P_available_values, dischargePower_values, 
@@ -512,13 +568,17 @@ plot(date_series, Baseload_Values, P_available_values, dischargePower_values,
      "Electrical Power generated, baseload and discharge of BESS")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, Price, sigma_t_values, chargingPower_values, 
+     "Price(EUR/MWh)", "CHP operation", "Charge rate of battery(kW)", 
+     "Price", "CHP operation", "Battery Charge", 
+     "Price, CHP operation and BESS charge rate")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
 plot(date_series, Price, P_available_values, SOC_percentage, 
      "Price(EUR/MWh)", "Electrical Power(kW)", "SoC Battery(%)", 
      "Price", "Electrical Power", "SoC Battety", 
      "Electrical Power generated, SoC and Price")
 
-#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(date_series, Price, sigma_t_values, dischargePower_values, 
-     "Price(EUR/MWh)", "CHP operation", "Discharge rate of battery(kW)", 
-     "Price", "CHP operation", "Battery Discharge", 
-     "Price, CHP operation and BESS discharge rate")
+
+
+

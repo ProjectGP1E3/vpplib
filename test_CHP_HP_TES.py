@@ -38,6 +38,7 @@ max_chare_rate= 0.25    # in 25%
 max_discharge_rate =0.25  # in 25%
 max_storage_cap=250 #KW
 start_E_t=112.5
+Max_E_t=250
 
 thermal_energy_loss_per_day = 0.13
 efficiency_per_timestep = 1 - (
@@ -63,6 +64,8 @@ def heat_pump_power(phi_e, tmp):
             )
     
     return phi_e*cop
+# Define the maximum number of startups
+N = 5  # Adjust this value as per your requirements
 
 #Parameter to be defined for Enviroment
 start = "2015-01-01 00:00:00"
@@ -150,6 +153,7 @@ Loss_Tes={t:m.addVar(vtype=GRB.CONTINUOUS, name="Loss_ThermalStorage_{}".format(
 #x_vars = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0, ub=1, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
 x_vars = {t:m.addVar(vtype=GRB.BINARY, name="x_{}".format(t)) for t in set_T} # operating mode of heat pump
 
+heatpump_startup = {t:m.addVar(vtype=GRB.BINARY, name="heatpump_startup_{}".format(t)) for t in set_T} # startup heat pump
 
 P_hp_thermal={t:m.addVar(vtype=GRB.CONTINUOUS, name="P_hp_thermal_{}".format(t)) for t in set_T} #thermal power of heat pump in[kW]
 
@@ -228,6 +232,13 @@ constraints_rampdown_eq = {t: m.addConstr(
     name='max_constraint_{}'.format(t)
     ) for t in range(1,T)}
 
+constraints_thermal_generation = {t: m.addConstr(
+    lhs = P_hp_thermal[t],
+    sense = GRB.EQUAL,
+    rhs=x_vars[t]*heat_pump_power(P_nom, T_a[t]) ,
+    name='Thermalgeneration_{}'.format(t)
+) for t in range(0,T)}
+
 #Constraint Equations Thermal storage interface CHP
 
 constraints_thermal_balance1 = {t: m.addConstr(
@@ -249,20 +260,41 @@ constraints_state_of_charge = {t: m.addConstr(
 constraints_Loss_Thermal = {t: m.addConstr(
     lhs =Loss_Tes[t],
     sense = GRB.EQUAL,
-    rhs=storage_efficiency*E_t[t-1] + 0.001*k_sto*A_sto*(min_temperature-T_a[t]),
+    rhs=storage_efficiency*E_t[t-1],
     name='current_temperature_{}'.format(t)
 ) for t in range(1,T)}
 
 
 #Constraint Equations Heat pump
 
-constraints_thermal_generation = {t: m.addConstr(
-    lhs = P_hp_thermal[t],
-    sense = GRB.EQUAL,
-    rhs=heat_pump_power(P_nom, T_a[t])*x_vars[t] ,
-    name='Thermalgeneration_{}'.format(t)
-) for t in range(0,T)}
 
+#operation of heat pump 
+constraints_startup_eq1 = {t: m.addConstr(
+    lhs = heatpump_startup[t],
+    sense = GRB.GREATER_EQUAL,
+    rhs=x_vars[t]-x_vars[t-1],
+    name='start_up1_{}'.format(t)
+) for t in range(1,T)}
+
+constraints_startup_eq2 = {t: m.addConstr(
+    lhs = heatpump_startup[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=1-x_vars[t-1],
+    name='start_up2_{}'.format(t)
+) for t in range(1,T)}
+
+# Add the constraint for the maximum number of startups
+m.addConstr(
+    gp.quicksum(heatpump_startup[t] for t in set_T) <= N,
+    name="max_startup_constraint"
+)
+
+constraints_startup_eq3 = {t: m.addConstr(
+    lhs = heatpump_startup[t],
+    sense = GRB.LESS_EQUAL,
+    rhs=x_vars[t],
+    name='start_up3_{}'.format(t)
+) for t in range(0,T)}
 
 constraints_Electrical_Consumption = {t: m.addConstr(
     lhs = P_hp_Elec[t],
@@ -302,7 +334,7 @@ constraints_min_state_of_charge = {t: m.addConstr(
  #>= contraints
 
 constraints_max_state_of_charge= {t: m.addConstr(
-    lhs =250,
+    lhs = Max_E_t,
     sense = GRB.GREATER_EQUAL,
     rhs=E_t[t],
     name='min_constraint2_{}'.format(t)
@@ -321,7 +353,7 @@ constraints_min_charge_rate = {t: m.addConstr(
 constraints_max_charge_rate= {t: m.addConstr(
     lhs =max_storage_cap*max_chare_rate,
     sense = GRB.GREATER_EQUAL,
-    rhs=charge_efficiency*Q_dot_charge[t],
+    rhs=charge_efficiency*Q_dot_charge[t]+ 0.001*k_sto*A_sto*(min_temperature-T_a[t]),
     name='min_constraint4_{}'.format(t)
      ) for t in range(0,T)}
 # <= contraints
@@ -364,9 +396,14 @@ constraints_state_of_charge[0] = m.addConstr(
     rhs= start_E_t,
     name='State_of_charge_{}'.format(0)) 
 
+constraints_storage_temperature [0] = m.addConstr(
+    lhs=T_sto[0] ,
+    sense = GRB.EQUAL,
+    rhs= min_temperature,
+    name='current_temperature_{}'.format(0)) 
 # Objective
 
-objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + 1000*nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
+objective=gp.quicksum(-P_available[t] * P[t] + P_hp_Elec[t]*P[t]  + 1000*nu[t]*comfort_fact + 10*heatpump_startup[t]+sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
 
 m.setObjective(objective)
 
@@ -384,13 +421,22 @@ Price = [P[t] for t in set_T]
 Q_demand_values = [Q_demand[t] for t in set_T]
 
 P_hp_thermal_values = [m.getVarByName(varname.VarName).x for varname in P_hp_thermal.values()]
+
+P_hp_Elec_values = [m.getVarByName(varname.VarName).x for varname in P_hp_Elec.values()]
+
 P_thermal_values = [m.getVarByName(varname.VarName).x for varname in  P_thermal.values()]
+
+P_available_values = [m.getVarByName(varname.VarName).x for varname in  P_available.values()]
+
 Q_dot_discharge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_discharge.values()]
 
 Q_dot_charge_values = [m.getVarByName(varname.VarName).x for varname in Q_dot_charge.values()]
 
 T_current_values = [m.getVarByName(varname.VarName).x for varname in T_sto.values()]
 
+E_percentage = [(E_t / Max_E_t) * 100 for E_t in E_t_values]
+
+Thermal_loss=[m.getVarByName(varname.VarName).x for varname in Loss_Tes.values()]
 
 # Create time axis for plotting
 time_axis = range(len(P))
@@ -431,19 +477,25 @@ plot(date_series, Price, sigma_values, x_vars_values,
      "Optimal operation of CHP and Heat Pump along with Electricity price")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(date_series, Q_dot_charge_values, sigma_values, x_vars_values, 
-     "Charge rate(kWh)", "CHP Operation", "Heat Pump Operation", 
-     "Charge rate of TES", "CHP Operation", "Heat Pump Operation", 
-     "Optimal operation of CHP and Heat Pump along with charge rate of TES")
+plot(date_series,Q_demand_values, P_hp_thermal_values, P_thermal_values, 
+     "Heat demand(kW)", "Thermal Power(Kw)", "Thermal Power(kW)", 
+     "Heat demand", "Thermal Power HP", "Thermal Power CHP", 
+     "Heat demand, Thermal power generated by Heat pump and CHP")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-plot(date_series, E_t_values, sigma_values, x_vars_values, 
-     "State of Charge", "CHP Operation", "Heat Pump Operation", 
-     "State of Charge of TES", "CHP operation", "Heat Pump Operation", 
-     "Optimal operation of CHP and Heat Pump along with SOC of Thermal storage")
+plot(date_series, sigma_values, x_vars_values, Q_dot_charge_values, 
+     "CHP operation", "Heat pump operation", "charge rate(kW)", 
+     "CHP operation ", "Heat pump operation", "charge rate", 
+     "CHP operation of Heat Pump, Thermal heat generated along with SOC of Thermal storage")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
-"""plot(date_series, Q_demand_values, P_thermal_values, P_hp_thermal_values, Q_dot_discharge_values, 
-     "Thermal demand", "Thermal Power CHP(kW)", "Thermal Power(kW)", 
-     "Thermal demand", "Thermal Power CHP", "Thermal Power Heat Pump", "TES Discharge rate", 
-     "Thermal Energy generated against Thermal demand for 10 days")"""
+plot(date_series, E_percentage, P_hp_thermal_values, x_vars_values, 
+     "State of Charge(%)", "Thermal Power(kW)", "Heat Pump Operation", 
+     "State of Charge of TES ", "Thermal Power", "Heat Pump Operation", 
+     "Optimal operation of Heat Pump, Thermal heat generated along with SOC of Thermal storage")
+
+#plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
+plot(date_series, Price, P_available_values, P_hp_Elec_values, 
+     "Price(Eur/Mwh)", "Electrical Power CHP(kW)", "Electrical Power HP(kW)", 
+     "Price", "Electrical Power CHP", "Electrical Power Heat Pump", 
+     "Price along with Electrical power generated by CHP and consumed by Heatpump")
