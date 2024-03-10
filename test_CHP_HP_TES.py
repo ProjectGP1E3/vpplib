@@ -486,12 +486,12 @@ plot(date_series,Q_demand_values, P_hp_thermal_values, P_thermal_values,
 plot(date_series, sigma_values, x_vars_values, Q_dot_charge_values, 
      "CHP operation", "Heat pump operation", "charge rate(kW)", 
      "CHP operation ", "Heat pump operation", "charge rate", 
-     "CHP operation of Heat Pump, Thermal heat generated along with SOC of Thermal storage")
+     "Optimal operation of CHP, HP along with charge rate of Thermal storage")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
 plot(date_series, E_percentage, P_hp_thermal_values, x_vars_values, 
      "State of Charge(%)", "Thermal Power(kW)", "Heat Pump Operation", 
-     "State of Charge of TES ", "Thermal Power", "Heat Pump Operation", 
+     "State of Charge of TES ", "Thermal Power HP", "Heat Pump Operation", 
      "Optimal operation of Heat Pump, Thermal heat generated along with SOC of Thermal storage")
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
