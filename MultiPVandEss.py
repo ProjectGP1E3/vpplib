@@ -371,7 +371,7 @@ class PvBessOptimization():
 
         # Optionally, set a common x-axis label
         #fig.text(0.5, 0.04, 'Time', ha='center')
-        plt.suptitle('SoC with PV and Prices')
+        plt.suptitle('PV Generation and Base-Load')
 
 
         # Adjust layout for better spacing
