@@ -126,7 +126,7 @@ class PvBessOptimization():
         # combine baseload and pv timeseries to get residual load
         house_loadshape = pd.DataFrame(baseload["0"].loc[self.start:self.end] / 1000)
         house_loadshape["pv_gen"] = self.pvPower.loc[self.start:self.end]
-        house_loadshape["Excess_Power"] = ( self.pvPower.PVbus_pv-(baseload["0"].loc[self.start:self.end] / 1000) )#type :ignore
+        house_loadshape["Excess_Power"] = ( house_loadshape.pv_gen-(baseload["0"].loc[self.start:self.end] / 1000) )#type :ignore
         self.ExcessPower=house_loadshape.Excess_Power
         house_loadshape["baseload"]=(baseload["0"].loc[self.start:self.end]/1000)
 
@@ -164,9 +164,9 @@ class PvBessOptimization():
         
 
         priceModel = {t: prices_use[(t *time_step_size)//60] for t in set_T}
-        pvPowerModel= {t: self.pvPower_use[(t *time_step_size)//60] for t in set_T}
-        loadModel= {t: self.outputLoad[(t *time_step_size)//60] for t in set_T}
-        systemLoadModel={t: self.systemLoad[(t *time_step_size)//60] for t in set_T}
+        pvPowerModel= {t: self.pvPower_use[t] for t in set_T}
+        loadModel= {t: self.outputLoad[t] for t in set_T}
+        systemLoadModel={t: self.systemLoad[t] for t in set_T}
         chargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=self.maxChargingPower,name="chargingPower_{}".format(t)) for t in set_T}
         dischargingPower = {t:m.addVar(vtype=GRB.CONTINUOUS,lb=0,ub=self.maxDischargingPower,name="dischargingPower_{}".format(t)) for t in set_T}
         chargingState = {t:m.addVar(vtype=GRB.INTEGER,lb=0,ub=1,name="chargingState_{}".format(t)) for t in set_T}
@@ -351,7 +351,7 @@ class PvBessOptimization():
         ax1.grid(True)  # Enable grid
 
         # Plotting SOC on the second subplot
-        ax2.plot(self.time_series,self.baseloadData, label='baseload Data', color='blue')
+        ax2.plot(self.time_series,self.systemLoad, label='baseload Data', color='blue')
         ax2.set_ylabel('Baseload (kWh)', color='blue')
         ax2.tick_params(axis='y', labelcolor='blue')
         ax2.legend(loc='upper left')
@@ -359,8 +359,9 @@ class PvBessOptimization():
         ax2.grid(True)  
 
         # Plotting Price on the third subplot
-        ax3.plot(self.time_series,self.ExcessPower, label='Excess Power', color='green')
+        ax3.plot(self.time_series,list(pvPowerModel.values()), label='Excess PV Power', color='green')
         #ax3.set_ylabel('Power kWh', color='green')
+        
         ax3.plot(self.time_series,-1*self.systemLoad, label='Excess Load', color='red')
         ax3.set_ylabel('kWh', color='black')
         #ax3.set_xlabel('Timestamps')
