@@ -527,7 +527,7 @@ def plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend
     axs[2].set_xlabel('Time')
     axs[2].set_ylabel(y3_label)
     axs[2].grid(True)
-    axs[2].legend(loc = 'upper right')
+    axs[2].legend(loc = 'lower right')
 
     # Add a title
     plt.suptitle(title)
@@ -552,7 +552,7 @@ plot(date_series, Q_demand_values, P_thermal_values,  E_percentage,
 plot(date_series, sigma_t_values,  Q_charge_values, Thermal_loss, 
      "CHP operation", "Charge rate(kW)", "Thermal loss TES(kW)", 
      "CHP operation", "Charge rate", "Thermal loss", 
-     "CHP operation,Charge rate of Thermal Storage and Thermal loss")
+     "CHP operation, Charge rate of Thermal Storage and Thermal loss")
 
 
 #plot(x, y1, y2, y3, y1_label, y2_label, y3_label, legend_1, legend_2, legend_3, title)
