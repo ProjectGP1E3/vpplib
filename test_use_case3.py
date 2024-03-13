@@ -11,7 +11,7 @@ from vpplib.electrical_energy_storage import ElectricalEnergyStorageSimses
 
 # Parameters for CHP 
 
-C_operating=13 #CHP operating cost [Euro=kwh]
+C_operating=13 #CHP operating cost [Euro/kwh]
 comfort_fact=10
 C_fuel=0.119  #Euro/kwh
 C_shortdown=0.495  #Euro/kwh 
@@ -71,7 +71,7 @@ charge_efficiency=0.9    # in 90%
 discharge_efficiency= 0.9  # in 90%
 max_chare_rate= 0.25    # in 25%
 max_discharge_rate =0.25  # in 25%
-max_storage_cap=250 #KW
+max_storage_cap=250 #kW
 k_sto= 1.12   #  thermal conductivity of storage material W/m^2K
 A_sto=3.39    #  Area of storage unit in m^2
 #Parameter for Environment
@@ -469,10 +469,6 @@ constraints_discharging_power3 = {t: m.addConstr(
 #Objective function with Price to run the chp base on Dayahead price 
 
 #objective=gp.quicksum(-P_available[t]* P[t]-chargingPower[t] * P[t] + nu[t]*comfort_fact + sigma_startup[t] * C_startup +sigma_shortdown[t] * C_shortdown + P_fuel[t] * C_fuel    for t in set_T)
-
-"""
-This constraint is base on minimise the cost of operating the CHP and does not look at the market price 
-open for discussion """
 
 objective = gp.quicksum(-dischargingPower[t]*P[t]*1000 + sigma_startup[t] * C_startup + P_fuel[t] * C_fuel + sigma_shortdown[t] * C_shortdown +nu[t]*comfort_fact for t in set_T)
 
