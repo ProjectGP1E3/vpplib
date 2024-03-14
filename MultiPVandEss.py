@@ -1,7 +1,7 @@
 #from hamcrest import none
 from matplotlib import style
 from matplotlib.lines import drawStyles, lineStyles
-from torch import t
+#from torch import t
 from vpplib.user_profile import UserProfile
 from vpplib.environment import Environment
 from vpplib.electrical_energy_storage import ElectricalEnergyStorage
@@ -343,7 +343,7 @@ class PvBessOptimization():
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
 
         # Plotting PV power model on the first subplot
-        ax1.plot(self.time_series,self.pvPowerGenerated, label='PV Generated', color='orange')
+        ax1.plot(self.time_series,self.pvPowerGenerated, label='PV Generation', color='orange')
         ax1.set_ylabel('PV (kWh)', color='orange')
         ax1.tick_params(axis='y', labelcolor='orange')
         ax1.legend(loc='upper left')
@@ -351,7 +351,7 @@ class PvBessOptimization():
         ax1.grid(True)  # Enable grid
 
         # Plotting SOC on the second subplot
-        ax2.plot(self.time_series,self.systemLoad, label='baseload Data', color='blue')
+        ax2.plot(self.time_series,self.baseloadData, label='baseload Data', color='blue')
         ax2.set_ylabel('Baseload (kWh)', color='blue')
         ax2.tick_params(axis='y', labelcolor='blue')
         ax2.legend(loc='upper left')
@@ -362,7 +362,7 @@ class PvBessOptimization():
         ax3.plot(self.time_series,list(pvPowerModel.values()), label='Excess PV Power', color='green')
         #ax3.set_ylabel('Power kWh', color='green')
         
-        ax3.plot(self.time_series,-1*self.systemLoad, label='Excess Load', color='red')
+        ax3.plot(self.time_series,-1*self.systemLoad, label='Residual Load', color='red')
         ax3.set_ylabel('kWh', color='black')
         #ax3.set_xlabel('Timestamps')
         ax3.tick_params(axis='y', labelcolor='black')
